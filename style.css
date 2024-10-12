@@ -66,6 +66,97 @@ li a:hover{
 
 
 /* hero-styling  */
+.avg{
+    display: flex;
+    justify-content: end;
+}
+.button-7 {
+  background-color: #0095ff;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  box-shadow: rgba(255, 255, 255, .4) 0 1px 0 0 inset;
+  box-sizing: border-box;
+  color: #fff;
+  cursor: pointer;
+  display: inline-block;
+  font-family: -apple-system,system-ui,"Segoe UI","Liberation Sans",sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.15385;
+  margin: 0;
+  outline: none;
+  padding: 8px .8em;
+  position: relative;
+  text-align: center;
+  text-decoration: none;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  vertical-align: baseline;
+  white-space: nowrap;
+  margin: 0px 16px;
+}
+
+.button-7:hover,
+.button-7:focus {
+  background-color: #07c;
+}
+
+.button-7:focus {
+  box-shadow: 0 0 0 4px rgba(0, 149, 255, .15);
+}
+
+.button-7:active {
+  background-color: #0064bd;
+  box-shadow: none;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 20px 0;
+}
+
+.pagination a, .pagination span {
+    background-color: #007bff; /* Bootstrap primary color */
+    color: white;
+    padding: 10px 15px;
+    margin: 0 5px;
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 16px;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.pagination a:hover {
+    background-color: #0056b3; /* Darker shade on hover */
+    transform: translateY(-2px); /* Slight lift effect */
+}
+
+.pagination .disabled {
+    background-color: #ccc; /* Grey color for disabled state */
+    color: #666; /* Darker grey for text */
+    padding: 10px 15px;
+    margin: 0 5px;
+    border-radius: 5px;
+    cursor: not-allowed; /* Change cursor for disabled */
+}
+
+.pagination .active {
+    background-color: #0056b3; /* Highlight for the active page */
+    color: white;
+    font-weight: bold; /* Bold text for the current page */
+    pointer-events: none; /* Disable pointer events on active page */
+}
+
+/* Add some spacing between buttons */
+.pagination a:not(.active):not(.disabled) {
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
 
 .container{
     display: grid;

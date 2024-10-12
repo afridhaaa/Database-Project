@@ -38,18 +38,7 @@ $result = $conn->query($sql);
     </style>
 </head>
 <body>
-    <nav>
-        <div class="menu-icon" id="menu-icon">&#9776; <h1>Formula 1</h1></div> <!-- Hamburger Icon -->
-            <ul id="nav-links">
-            <li><a href="index.php" id="logo">FORMULA 1</a></li>
-              <li><a href="races.php">Races</a></li>
-              <li><a href="ranking.php">Ranking</a></li>
-              <li><a href="driver.php">Drivers</a></li>
-              <li><a href="standings.php">Standings</a></li>
-              <li><a href="constructor.php">Constructors</a></li>
-              <li><a href="admin_login.php">Admin</a></li>
-            </ul>
-    </nav>
+   
 
     <div class="hero">
         <div class="container">

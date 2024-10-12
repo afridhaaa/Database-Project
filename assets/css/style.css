@@ -1,0 +1,371 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.topbar{
+    width: 100%;
+    background-color: #212429;
+}
+.topbar .heading h4 {
+    font-size: 22px;
+    margin-bottom: 0px;
+    color: #fff;
+    text-align: center;
+    padding-top: 12px;
+    font-family: "Roboto", sans-serif;
+    font-weight: 700;
+    line-height: 40px;
+}
+.topbar .heading a{
+    text-decoration: none;
+}
+.topbar .heading a:hover{
+    color: #e94747;
+}
+.nav-link {
+    display: block;
+    padding: var(--bs-nav-link-padding-y) var(--bs-nav-link-padding-x);
+    font-size: var(--bs-nav-link-font-size);
+    font-weight: var(--bs-nav-link-font-weight);
+    color: #fff;
+    text-decoration: none;
+    background: 0 0;
+    border: 0;
+    transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out;
+}
+.navbar-nav .nav-link.active, .navbar-nav .nav-link.show {
+    color: #fff;
+}
+.navbar-brand {
+    padding-top: var(--bs-navbar-brand-padding-y);
+    padding-bottom: inherit;
+    margin-right: var(--bs-navbar-brand-margin-end);
+    font-size: 26px;
+    padding-left: 48px;
+    color: #fff;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.table-dark td a {
+    color: #e94747;
+    text-decoration: none;
+}
+.nav-link:focus, .nav-link:hover {
+    color: #e94747;
+}
+.navbar-brand:focus, .navbar-brand:hover {
+    color: #e94747;
+}
+.sidebar {
+    background-color: #212429;
+    padding-top: 48px;
+    padding-bottom: 16px;
+    max-height: 100vh;
+    overflow-y: auto;
+}
+.more-items {
+    display: none;
+}
+.sidebar-nav{
+    padding: 0px;
+}
+.sidebar-nav li{
+        display: flex;
+        justify-content: center;
+        margin-bottom: 14px;
+} 
+.sidebar-nav li .button-7 {
+    color: #ffffff;
+    text-decoration: none;
+    font-family: "Noto Sans", sans-serif;
+    font-weight: 400;
+    font-size: 16px;
+    outline: 0px;
+    border: 0px;
+    background: #212429;
+    width: 100%;
+    margin-bottom: 10px;
+}
+.sidebar-nav li .button-7:hover {
+    color: #e94747;
+}
+.active{
+    color: #0d6efd;
+}
+.submain {
+    background-color: #3a3b3d;
+    padding: 0px 68px;
+    height: 100%;
+}
+.head h2 {
+    font-size: 42px;
+    margin-bottom: 0px;
+    color: #fff;
+    text-align: center;
+    padding-top: 12px;
+    font-family: "Roboto", sans-serif;
+    font-weight: 700;
+    line-height: 52px;
+    text-transform: capitalize;
+}
+/* Container for filter */
+.custom-filter-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+    margin-top: 30px;
+}
+
+/* Form styling */
+.custom-filter-form {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    background-color: #f7f7f7;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Form group for individual fields */
+.custom-form-group {
+    display: flex;
+    flex-direction: column;
+    margin-right: 15px;
+}
+
+/* Label styling */
+.custom-label {
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+/* Input field styles */
+.custom-form-control {
+    padding: 10px 15px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    transition: border-color 0.3s ease;
+    background-color: #fff;
+}
+
+/* Input hover and focus effects */
+.custom-form-control:hover, .custom-form-control:focus {
+    border-color: #28a745; /* Green color */
+    box-shadow: 0 0 5px rgba(40, 167, 69, 0.5);
+}
+
+/* Search bar specific styles */
+.custom-search-bar {
+    min-width: 350px;
+    border: 1px solid #17a2b8; /* Light blue border */
+}
+
+/* Button styles */
+.custom-btn {
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    color: white;
+    margin-top: 20px;
+}
+
+/* Primary button (search) */
+.custom-btn-primary {
+    background-color: #007BFF;
+}
+
+.custom-btn-primary:hover {
+    background-color: #0056b3;
+}
+
+/* Clear Search Button */
+.custom-btn-clear {
+    background-color: #dc3545;
+    text-decoration: none;
+}
+
+.custom-btn-clear:hover {
+    background-color: #c82333;
+}
+
+/* Responsive Flexbox alignment for form */
+@media (max-width: 768px) {
+    .custom-filter-form {
+        flex-direction: column;
+        gap: 20px;
+        align-items: stretch;
+    }
+
+    .custom-search-bar {
+        min-width: 100%;
+    }
+}
+.custom-search-bar2 {
+    min-width: 200px;
+    border: 1px solid #17a2b8;
+}
+* Add styles for pagination */
+.pagination {
+    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+  
+}
+
+.pagination a {
+    background-color: #e94747;
+    margin: 2px;
+    padding: 10px 4px;
+    border: 1px solid #e94747;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.pagination a:hover {
+    background-color: #e94747;
+    color: white;
+}
+
+.pagination .current-page {
+    margin: 5px;
+    padding: 10px 15px;
+    font-weight: bold;
+    background-color: #007bff;
+    color: white;
+    border: 1px solid #007bff;
+    border-radius: 5px;
+    font-size: 0.9rem;
+}
+
+.pagination .disabled {
+    margin: 0px;
+    padding: 10px 9px;
+    font-weight: bold;
+    color: grey;
+    cursor: not-allowed;
+}
+
+/* Responsive pagination */
+@media (max-width: 600px) {
+    .pagination a,
+    .pagination .current-page {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+}
+.full{
+    background-color: #212429;
+}
+.pagination{
+    display: flex;
+    justify-content: center;
+}
+.button-8 {
+    background-color: #0095ff;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    box-shadow: rgba(255, 255, 255, .4) 0 1px 0 0 inset;
+    box-sizing: border-box;
+    color: #fff;
+    cursor: pointer;
+    display: inline-block;
+    font-family: -apple-system,system-ui,"Segoe UI","Liberation Sans",sans-serif;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.15385;
+    margin: 0;
+    outline: none;
+    padding: 8px .8em;
+    position: relative;
+    text-align: center;
+    text-decoration: none;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    vertical-align: baseline;
+    white-space: nowrap;
+    margin: 0px 16px;
+}
+.button-8:hover, .button-8:focus {
+    background-color: #07c;
+}
+
+@media screen and (max-width:768px) {
+   .back-button{
+    margin: 0px !important;
+   }
+    .submain {
+        background-color: #3a3b3d;
+        padding: 0px;
+        height: 100%;
+    }
+    .pagination a {
+        background-color: #007bff;
+        margin: 1px;
+        padding: 5px 2px;
+        border: 1px solid #007bff;
+        color: #fff;
+        text-decoration: none;
+        border-radius: 5px;
+        font-size: 12px;
+        transition: background-color 0.3s, color 0.3s;
+    }
+    .pagination .disabled {
+        margin: 0px;
+        padding: 6px 6px;
+    }
+}
+@media screen and (max-width:650px) {
+    .pagination .disabled {
+        margin: 0px;
+        padding: 6px 6px;
+        font-weight: bold;
+        color: grey;
+        cursor: not-allowed;
+    }
+    .pagination a {
+        background-color: #007bff;
+        margin: 1px;
+        padding: 5px 0px;
+        border: 1px solid #007bff;
+        color: #fff;
+        text-decoration: none;
+        border-radius: 5px;
+        font-size: 11px;
+        transition: background-color 0.3s, color 0.3s;
+    }
+}
+@media screen and (max-width:580px) {
+    .pagination .disabled {
+        margin: 0px;
+        padding: 3px 3px;
+        font-weight: bold;
+        color: grey;
+        cursor: not-allowed;
+        font-size: 12px;
+    }
+    .table-dark th{
+        font-size: 13px;
+    }
+}
+@media screen and (max-width:460px) {
+    .table-dark td{
+        font-size: 11px;
+        padding: 10px 0px;
+    }
+    .table-dark th{
+        font-size: 10px;
+    }
+}
