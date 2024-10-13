@@ -2,7 +2,7 @@
 include 'db/db.php';  // Include your database connection
 
 // Set the number of results per page
-$results_per_page = 5; // Adjust this to match your query limit
+$results_per_page = 13; // Adjust this to match your query limit
 
 // Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -66,11 +66,6 @@ $total_pages = ceil($total_row['total'] / $results_per_page);
    <div class="topbar">
     <div class="container-fluid">
         <div class="row">
-            <div class="col-md-2">
-                <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
-                </div>
-            </div>
         </div>
     </div>
    </div>
@@ -156,32 +151,69 @@ $total_pages = ceil($total_row['total'] / $results_per_page);
 
        <!-- Pagination Controls -->
        <div class="pagination">
-                <!-- Previous button -->
-                <?php
-                if ($current_page > 1) {
-                    echo '<a href="top5.php?page=' . ($current_page - 1) . '&search=' . urlencode($search_term) . '&sort=' . $sort_order . '" class="button-7">Previous</a>';
-                } else {
-                    echo '<span class="disabled">Previous</span>';
-                }
+    <?php
+    // Ensure $current_page and $total_pages are integers
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-                // Page number links
-                for ($i = 1; $i <= $total_pages; $i++) {
-                    if ($i == $current_page) {
-                        echo '<span class="current-page">' . $i . '</span>'; // Current page
-                    } else {
-                        echo '<a href="top5.php?page=' . $i . '&search=' . urlencode($search_term) . '&sort=' . $sort_order . '">' . $i . '</a>';
-                    }
-                }
+    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
 
-                // Next button
-                if ($current_page < $total_pages) {
-                    echo '<a href="top5.php?page=' . ($current_page + 1) . '&search=' . urlencode($search_term) . '&sort=' . $sort_order . '" class="button-7">Next</a>';
-                } else {
-                    echo '<span class="disabled">Next</span>';
-                }
-                ?>
-            </div>
-                        
+    // Define the maximum number of links to display at once
+    $max_links = 8;
+
+    // Calculate the start and end page numbers
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
+
+    // Adjust the range if we're near the beginning or end
+    if ($end_page - $start_page < $max_links - 1) {
+        $start_page = max(1, $end_page - $max_links + 1);
+    }
+
+    // Previous button
+    if ($current_page > 1) {
+        echo '<a href="top5.php?page=' . ($current_page - 1) . '&search=' . urlencode($search_term) . '&sort=' . $sort_order . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
+
+    // First page and ellipsis if necessary
+    if ($start_page > 1) {
+        echo '<a href="top5.php?page=1&search=' . urlencode($search_term) . '&sort=' . $sort_order . '" class="button-7">1</a>';
+        if ($start_page > 2) {
+            echo '<span class="ellipsis">...</span>'; // Ellipsis
+        }
+    }
+
+    // Page number links
+    for ($i = $start_page; $i <= $end_page; $i++) {
+        if ($i == $current_page) {
+            echo '<span class="current-page">' . $i . '</span>'; // Active page
+        } else {
+            echo '<a href="top5.php?page=' . $i . '&search=' . urlencode($search_term) . '&sort=' . $sort_order . '" class="button-7">' . $i . '</a>';
+        }
+    }
+
+    // Last page and ellipsis if necessary
+    if ($end_page < $total_pages) {
+        if ($end_page < $total_pages - 1) {
+            echo '<span class="ellipsis">...</span>'; // Ellipsis
+        }
+        echo '<a href="top5.php?page=' . $total_pages . '&search=' . urlencode($search_term) . '&sort=' . $sort_order . '" class="button-7">' . $total_pages . '</a>';
+    }
+
+    // Next button
+    if ($current_page < $total_pages) {
+        echo '<a href="top5.php?page=' . ($current_page + 1) . '&search=' . urlencode($search_term) . '&sort=' . $sort_order . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
+</div>
+
                     </div>
                 </div>
             </div>

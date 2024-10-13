@@ -2,7 +2,7 @@
 include 'db/db.php';
 
 // Define how many results you want per page
-$results_per_page = 10;
+$results_per_page = 13;
 
 // Determine which page number visitor is currently on
 if (isset($_GET['page']) && is_numeric($_GET['page'])) {
@@ -146,59 +146,65 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
                             </table>
                         </div>
 
-                        // Pagination Controls
-<div class="pagination">
-    <?php
-    // Previous button
-    if ($current_page > 1) {
-        echo '<a href="myrace.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
-    } else {
-        echo '<span class="disabled">Previous</span>';
-    }
+            
+                        <nav>
+    <ul class="pagination justify-content-center">
+        <?php
+        // Ensure $page and $total_pages are integers
+        $page = isset($_GET['page']) && is_numeric($_GET['page']) 
+            ? intval($_GET['page']) 
+            : 1;
 
-    // Display page numbers
-    $page_count = 0; // To count how many pages have been displayed
-    echo '<div class="page-numbers">'; // Container for page numbers
+        $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
+            ? intval($total_pages) 
+            : 1;
 
-    // Calculate the range of pages to display
-    $start_page = max(1, $current_page - 2);
-    $end_page = min($total_pages, $current_page + 2);
+        // Define the number of pagination links to display
+        $max_links = 8;
 
-    // Show first page if necessary
-    if ($start_page > 1) {
-        echo '<a href="myrace.php?page=1">1</a>';
-        if ($start_page > 2) {
-            echo '<span>...</span>'; // Show ellipsis if there are pages skipped
+        // Calculate the start and end pages for the pagination
+        $start_page = max(1, $page - floor($max_links / 2));
+        $end_page = min($total_pages, $start_page + $max_links - 1);
+
+        // Adjust start page if we're close to the end
+        if ($end_page - $start_page < $max_links - 1) {
+            $start_page = max(1, $end_page - $max_links + 1);
         }
-    }
 
-    // Display pages in the range
-    for ($i = $start_page; $i <= $end_page; $i++) {
-        if ($i == $current_page) {
-            echo '<a href="#" class="active">' . $i . '</a>'; // Active page
+        // Previous button
+        if ($page > 1) {
+            echo '<li class="page-item">
+                    <a class="page-link" href="myrace.php?page=' . ($page - 1) . '">Previous</a>
+                  </li>';
         } else {
-            echo '<a href="myrace.php?page=' . $i . '">' . $i . '</a>';
+            echo '<li class="page-item disabled">
+                    <span class="page-link">Previous</span>
+                  </li>';
         }
-    }
 
-    // Show last page if necessary
-    if ($end_page < $total_pages) {
-        if ($end_page < $total_pages - 1) {
-            echo '<span>...</span>'; // Show ellipsis if there are pages skipped
+        // Display page numbers within the calculated range
+        for ($i = $start_page; $i <= $end_page; $i++) {
+            $active = ($i == $page) ? 'active' : '';
+            echo '<li class="page-item ' . $active . '">
+                    <a class="page-link" href="myrace.php?page=' . $i . '">' . $i . '</a>
+                  </li>';
         }
-        echo '<a href="myrace.php?page=' . $total_pages . '">' . $total_pages . '</a>';
-    }
 
-    echo '</div>'; // Close the container
+        // Next button
+        if ($page < $total_pages) {
+            echo '<li class="page-item">
+                    <a class="page-link" href="myrace.php?page=' . ($page + 1) . '">Next</a>
+                  </li>';
+        } else {
+            echo '<li class="page-item disabled">
+                    <span class="page-link">Next</span>
+                  </li>';
+        }
+        ?>
+    </ul>
+</nav>
 
-    // Next button
-    if ($current_page < $total_pages) {
-        echo '<a href="myrace.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
-    } else {
-        echo '<span class="disabled">Next</span>';
-    }
-    ?>
-</div>
+
 
 
 

@@ -91,11 +91,6 @@ $result = $conn->query($sql);
    <div class="topbar">
     <div class="container-fluid">
         <div class="row">
-            <div class="col-md-2">
-                <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
-                </div>
-            </div>
         </div>
     </div>
    </div>
@@ -201,32 +196,63 @@ $result = $conn->query($sql);
 </div>
 
   <!-- Pagination Controls -->
-  <div class="pagination">
-                    <?php
-                    // Previous button
-                    if ($current_page > 1) {
-                        echo '<a href="retrieveraces.php?page=' . ($current_page - 1) . '&driver_name=' . urlencode($driver_name) . '&constructor_name=' . urlencode($constructor_name) . '&circuit_name=' . urlencode($circuit_name) . '&race_name=' . urlencode($race_name) . '&sort_by=' . $sort_by . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
-                    } else {
-                        echo '<span class="disabled">Prev</span>';
-                    }
-                    
-                    // Page numbers
-                    for ($i = 1; $i <= $total_pages; $i++) {
-                        if ($i == $current_page) {
-                            echo '<a href="#" class="active">' . $i . '</a>';
-                        } else {
-                            echo '<a href="retrieveraces.php?page=' . $i . '&driver_name=' . urlencode($driver_name) . '&constructor_name=' . urlencode($constructor_name) . '&circuit_name=' . urlencode($circuit_name) . '&race_name=' . urlencode($race_name) . '&sort_by=' . $sort_by . '&sort_order=' . $sort_order . '">' . $i . '</a>';
-                        }
-                    }
+  <nav>
+    <ul class="pagination justify-content-center">
+        <?php
+        // Ensure $page and $total_pages are valid integers
+        $page = isset($_GET['page']) && is_numeric($_GET['page']) && $_GET['page'] > 0 
+            ? intval($_GET['page']) 
+            : 1;
 
-                    // Next button
-                    if ($current_page < $total_pages) {
-                        echo '<a href="retrieveraces.php?page=' . ($current_page + 1) . '&driver_name=' . urlencode($driver_name) . '&constructor_name=' . urlencode($constructor_name) . '&circuit_name=' . urlencode($circuit_name) . '&race_name=' . urlencode($race_name) . '&sort_by=' . $sort_by . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
-                    } else {
-                        echo '<span class="disabled">Next</span>';
-                    }
-                    ?>
-                </div>
+        $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
+            ? intval($total_pages) 
+            : 1;
+
+        // Number of links to display at once
+        $max_links = 8;
+
+        // Calculate start and end pages
+        $start_page = max(1, $page - floor($max_links / 2));
+        $end_page = min($total_pages, $start_page + $max_links - 1);
+
+        if ($end_page - $start_page < $max_links - 1) {
+            $start_page = max(1, $end_page - $max_links + 1);
+        }
+
+        // Previous button
+        if ($page > 1) {
+            echo '<li class="page-item">
+                    <a class="page-link" href="retrieveraces.php?page=' . ($page - 1) . '&driver_name=' . urlencode($driver_name) . '&constructor_name=' . urlencode($constructor_name) . '&sort_order=' . $sort_order . '">Previous</a>
+                  </li>';
+        } else {
+            echo '<li class="page-item disabled">
+                    <span class="page-link">Previous</span>
+                  </li>';
+        }
+
+        // Page links
+        for ($i = $start_page; $i <= $end_page; $i++) {
+            $active = ($i == $page) ? 'active' : '';
+            echo '<li class="page-item ' . $active . '">
+                    <a class="page-link" href="retrieveraces.php?page=' . $i . '&driver_name=' . urlencode($driver_name) . '&constructor_name=' . urlencode($constructor_name) . '&sort_order=' . $sort_order . '">' . $i . '</a>
+                  </li>';
+        }
+
+        // Next button
+        if ($page < $total_pages) {
+            echo '<li class="page-item">
+                    <a class="page-link" href="retrieveraces.php?page=' . ($page + 1) . '&driver_name=' . urlencode($driver_name) . '&constructor_name=' . urlencode($constructor_name) . '&sort_order=' . $sort_order . '">Next</a>
+                  </li>';
+        } else {
+            echo '<li class="page-item disabled">
+                    <span class="page-link">Next</span>
+                  </li>';
+        }
+        ?>
+    </ul>
+</nav>
+
+
                         
                     </div>
                 </div>

@@ -2,7 +2,7 @@
 include 'db/db.php';  // Include your database connection
 
 // Set the number of results per page
-$results_per_page = 5; // Adjust this to match the number of results you want to show per page
+$results_per_page = 13; // Adjust this to match the number of results you want to show per page
 
 // Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -98,11 +98,6 @@ $total_pages = ceil($total_row['total'] / $results_per_page);
     <div class="topbar">
     <div class="container-fluid">
         <div class="row">
-            <div class="col-md-2">
-                <!-- <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
-                </div> -->
-            </div>
         </div>
     </div>
    </div>

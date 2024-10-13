@@ -1,5 +1,4 @@
 <?php
-
 include 'db/db.php';  // Include your database connection
 
 // Set the number of results per page
@@ -20,11 +19,13 @@ $total_result = $conn->query($sql_total);
 $total_row = $total_result->fetch_assoc();
 $total_pages = ceil($total_row['total'] / $results_per_page);
 
+
 // Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
 // Calculate the starting limit number for the query
 $start_from = ($current_page - 1) * $results_per_page;
+
 
 // SQL query to fetch driver name, constructor name, circuit name, and total points with limit
 $sql = "SELECT d.forename, c.constructor_name, ci.circuit_name, SUM(rs.points) AS total_points 
@@ -38,9 +39,10 @@ $sql = "SELECT d.forename, c.constructor_name, ci.circuit_name, SUM(rs.points) A
         ORDER BY total_points DESC 
         LIMIT $start_from, $results_per_page";
 
-$result = $conn->query($sql);
-
+// Execute query and print any SQL errors
+$result = $conn->query($sql) or die("SQL Error: " . $conn->error);
 ?>
+
 
 
 
@@ -60,11 +62,6 @@ $result = $conn->query($sql);
    <div class="topbar">
     <div class="container-fluid">
         <div class="row">
-            <div class="col-md-2">
-                <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
-                </div>
-            </div>
         </div>
     </div>
    </div>

@@ -152,21 +152,21 @@ $current_page = basename($_SERVER['PHP_SELF']);
                         <button type="submit" name="raceslist" class="dropdown-item">Races List</button>
                     </form>
                 </li>
-                <li>
+                <!-- <li>
                     <form action="process.php" method="post">
                         <button type="submit" name="allraces" class="dropdown-item">Fastest Lap Times by Race</button>
                     </form>
-                </li>
+                </li> -->
                 <li>
                     <form action="process.php" method="post">
                         <button type="submit" name="nofraces" class="dropdown-item">Drivers' Number of Races</button>
                     </form>
                 </li>
-                <li>
+                <!-- <li>
                     <form action="process.php" method="post">
                         <button type="submit" name="araces" class="dropdown-item">Races Achieved</button>
                     </form>
-                </li>
+                </li> -->
             </ul>
         </li>
 

@@ -72,7 +72,7 @@ include 'db/db.php'; // Include the database connection
                 </div>
 
                 <div class="col-md-3">
-                    <div class="card text-white bg-warning mb-3">
+                    <div class="card text-white bg-secondary mb-3">
                         <div class="card-header">Total Circuits</div>
                         <div class="card-body">
                             <?php
