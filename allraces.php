@@ -28,7 +28,7 @@ $sql_total = "SELECT COUNT(*) AS total
               FROM (SELECT r.name AS race_name, d.forename, rs.fastestLapTime, rs.position 
                     FROM results rs 
                     INNER JOIN drivers d ON rs.driverId = d.driverId 
-                    INNER JOIN races r ON rs.raceId = r.race_id 
+                    INNER JOIN races r ON rs.raceId = r.raceId 
                     WHERE rs.fastestLapTime IS NOT NULL AND rs.position <> 1
                     AND (d.forename LIKE ?)) AS subquery";  // Use placeholders for prepared statements
 
@@ -50,7 +50,7 @@ $start_from = ($current_page - 1) * $results_per_page;
 $sql = "SELECT r.name AS race_name, d.forename, rs.fastestLapTime, rs.position 
         FROM results rs 
         INNER JOIN drivers d ON rs.driverId = d.driverId 
-        INNER JOIN races r ON rs.raceId = r.race_id 
+        INNER JOIN races r ON rs.raceId = r.raceId 
         WHERE rs.fastestLapTime IS NOT NULL AND rs.position <> 1 
         AND (d.forename LIKE ?) 
         ORDER BY rs.fastestLapTime $sort_order_lap, rs.position $sort_order_position 
@@ -172,18 +172,53 @@ $result = $stmt->get_result();
 
      <!-- Pagination Controls -->
      <div class="pagination">
-                    <?php if ($current_page > 1): ?>
-                        <a href="?page=<?php echo $current_page - 1; ?>&search=<?php echo urlencode($search_keyword); ?>&sort_order_lap=<?php echo $sort_order_lap; ?>&sort_order_position=<?php echo $sort_order_position; ?>" class="pagination-link">« Previous</a>
-                    <?php endif; ?>
+    <?php
+    // Total number of page links to show at once
+    $num_links = 10; // You can adjust this number to display more/less pages
+    
+    // Previous button
+    if ($current_page > 1): ?>
+        <a href="?page=<?php echo $current_page - 1; ?>&search=<?php echo urlencode($search_keyword); ?>&sort_order_lap=<?php echo $sort_order_lap; ?>&sort_order_position=<?php echo $sort_order_position; ?>" class="pagination-link">« Previous</a>
+    <?php else: ?>
+        <span class="disabled">« Previous</span>
+    <?php endif; ?>
 
-                    <?php for ($page = 1; $page <= $total_pages; $page++): ?>
-                        <a href="?page=<?php echo $page; ?>&search=<?php echo urlencode($search_keyword); ?>&sort_order_lap=<?php echo $sort_order_lap; ?>&sort_order_position=<?php echo $sort_order_position; ?>" class="pagination-link <?php echo ($page == $current_page) ? 'active' : ''; ?>"><?php echo $page; ?></a>
-                    <?php endfor; ?>
+    <?php
+    // Display "First" page button if needed
+    if ($current_page > $num_links) {
+        echo '<a href="?page=1&search=' . urlencode($search_keyword) . '&sort_order_lap=' . $sort_order_lap . '&sort_order_position=' . $sort_order_position . '" class="pagination-link">1</a>';
+        echo '<span class="disabled">...</span>'; // Ellipsis after first page if there are more pages in between
+    }
 
-                    <?php if ($current_page < $total_pages): ?>
-                        <a href="?page=<?php echo $current_page + 1; ?>&search=<?php echo urlencode($search_keyword); ?>&sort_order_lap=<?php echo $sort_order_lap; ?>&sort_order_position=<?php echo $sort_order_position; ?>" class="pagination-link">Next »</a>
-                    <?php endif; ?>
-                </div>
+    // Determine start and end pages for pagination
+    $start_page = max(1, $current_page - floor($num_links / 2));
+    $end_page = min($total_pages, $start_page + $num_links - 1);
+
+    // Adjust start and end to fit within valid range
+    if ($end_page - $start_page < $num_links - 1) {
+        $start_page = max(1, $end_page - $num_links + 1);
+    }
+
+    // Page number links
+    for ($page = $start_page; $page <= $end_page; $page++): ?>
+        <a href="?page=<?php echo $page; ?>&search=<?php echo urlencode($search_keyword); ?>&sort_order_lap=<?php echo $sort_order_lap; ?>&sort_order_position=<?php echo $sort_order_position; ?>" class="pagination-link <?php echo ($page == $current_page) ? 'active' : ''; ?>"><?php echo $page; ?></a>
+    <?php endfor; ?>
+
+    <?php
+    // Display "Last" page button if needed
+    if ($end_page < $total_pages) {
+        echo '<span class="disabled">...</span>'; // Ellipsis before the last page if there are skipped pages
+        echo '<a href="?page=' . $total_pages . '&search=' . urlencode($search_keyword) . '&sort_order_lap=' . $sort_order_lap . '&sort_order_position=' . $sort_order_position . '" class="pagination-link">' . $total_pages . '</a>';
+    }
+
+    // Next button
+    if ($current_page < $total_pages): ?>
+        <a href="?page=<?php echo $current_page + 1; ?>&search=<?php echo urlencode($search_keyword); ?>&sort_order_lap=<?php echo $sort_order_lap; ?>&sort_order_position=<?php echo $sort_order_position; ?>" class="pagination-link">Next »</a>
+    <?php else: ?>
+        <span class="disabled">Next »</span>
+    <?php endif; ?>
+</div>
+
                         
                     </div>
                 </div>

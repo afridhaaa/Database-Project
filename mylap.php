@@ -3,7 +3,7 @@ include 'db/db.php';
 include 'process.php';
 
 // Define how many results you want per page
-$results_per_page = 10;
+$results_per_page = 13;
 
 // Determine which page number visitor is currently on
 if (isset($_GET['page']) && is_numeric($_GET['page'])) {
@@ -146,29 +146,40 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
                         </div>
 
                         <!-- Pagination Controls -->
-<div class="pagination">
+                        <div class="pagination">
     <?php
-    // Previous button
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
+
+    // Ensure $total_pages is a valid integer
+    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
+
+    // Display "Previous" button
     if ($current_page > 1) {
         echo '<a href="mylap.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
     } else {
         echo '<span class="disabled">Previous</span>';
     }
 
-    // Page numbers
+    // Calculate the start and end page numbers
     $start_page = max(1, $current_page - 2); // Start from two pages before the current page
     $end_page = min($total_pages, $current_page + 2); // End at two pages after the current page
 
-    // Adjust start page if current page is close to the beginning
+    // Adjust if current page is near the beginning
     if ($current_page <= 2) {
-        $end_page = min(4, $total_pages); // Show up to 4 pages if we're near the start
-    }
-    
-    // Adjust end page if current page is close to the end
-    if ($current_page >= $total_pages - 1) {
-        $start_page = max(1, $total_pages - 3); // Show the last 4 pages if we're near the end
+        $end_page = min(4, $total_pages); // Show up to 4 pages if near the start
     }
 
+    // Adjust if current page is near the end
+    if ($current_page >= $total_pages - 1) {
+        $start_page = max(1, $total_pages - 3); // Show the last 4 pages if near the end
+    }
+
+    // Display page numbers
     for ($i = $start_page; $i <= $end_page; $i++) {
         if ($i == $current_page) {
             echo '<span class="current-page">' . $i . '</span>'; // Highlight current page
@@ -177,7 +188,7 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
         }
     }
 
-    // Next button
+    // Display "Next" button
     if ($current_page < $total_pages) {
         echo '<a href="mylap.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
     } else {
@@ -185,6 +196,7 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
     }
     ?>
 </div>
+
 
                         
                     </div>

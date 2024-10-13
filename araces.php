@@ -22,20 +22,20 @@ $sql = "SELECT
         FROM 
             results rs 
         INNER JOIN 
-            races r ON rs.raceId = r.race_id 
+            races r ON rs.raceId = r.raceId 
         INNER JOIN 
             constructors c ON rs.constructorId = c.constructor_id 
         INNER JOIN 
             drivers d ON rs.driverId = d.driverId 
         INNER JOIN 
-            lap_times lt ON lt.raceId = r.race_id AND lt.driverId = d.driverId 
+            lap_times lt ON lt.raceId = r.raceId AND lt.driverId = d.driverId 
         WHERE 
             (c.constructor_name LIKE ? OR d.forename LIKE ?) 
         GROUP BY 
             r.name, c.constructor_name 
         ORDER BY 
             average_laps $sort_order 
-        LIMIT ?, ?"; // Use placeholders for pagination
+        LIMIT ?, ?"; 
 
 // Prepare the statement
 $stmt = $conn->prepare($sql);
@@ -47,10 +47,10 @@ $result = $stmt->get_result();
 // Count total races for pagination
 $sql_total = "SELECT COUNT(DISTINCT r.name) AS total 
               FROM results rs 
-              INNER JOIN races r ON rs.raceId = r.race_id 
+              INNER JOIN races r ON rs.raceId = r.raceId 
               INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
               INNER JOIN drivers d ON rs.driverId = d.driverId 
-              INNER JOIN lap_times lt ON lt.raceId = r.race_id AND lt.driverId = d.driverId 
+              INNER JOIN lap_times lt ON lt.raceId = r.raceId AND lt.driverId = d.driverId 
               WHERE (c.constructor_name LIKE ? OR d.forename LIKE ?)";
 
 $stmt_total = $conn->prepare($sql_total);

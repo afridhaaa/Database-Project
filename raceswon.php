@@ -14,7 +14,7 @@ $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'ASC';
 
 // Determine the total number of pages available
 $sql_total = "SELECT COUNT(*) AS total FROM results rs
-              INNER JOIN races r ON rs.raceId = r.race_id
+              INNER JOIN races r ON rs.raceId = r.raceId
               INNER JOIN circuits c ON r.circuit_id = c.circuit_id
               INNER JOIN drivers d ON rs.driverId = d.driverId
               WHERE rs.position = 1
@@ -35,7 +35,7 @@ $start_from = ($current_page - 1) * $results_per_page;
 // SQL query to get races won by drivers with circuit names, with pagination and sorting
 $sql = "SELECT d.forename, r.name AS race_name, c.circuit_name
         FROM results rs
-        INNER JOIN races r ON rs.raceId = r.race_id
+        INNER JOIN races r ON rs.raceId = r.raceId
         INNER JOIN circuits c ON r.circuit_id = c.circuit_id
         INNER JOIN drivers d ON rs.driverId = d.driverId
         WHERE rs.position = 1

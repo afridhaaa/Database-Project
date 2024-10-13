@@ -19,7 +19,7 @@ $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'ASC';
 $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
 
 // Construct SQL query for fetching race data with sorting and search
-$sql = "SELECT race_id, year, round, circuit_id, name, date, url 
+$sql = "SELECT raceId, year, round, circuit_id, name, date, url 
         FROM races 
         WHERE name LIKE '%$search_keyword%' 
         OR year LIKE '%$search_keyword%' 
@@ -129,7 +129,7 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
                                     if ($result->num_rows > 0) {
                                         while($row = $result->fetch_assoc()) {
                                             echo "<tr>";
-                                            echo "<td>" . $row['race_id'] . "</td>";
+                                            echo "<td>" . $row['raceId'] . "</td>";
                                             echo "<td>" . $row['year'] . "</td>";
                                             echo "<td>" . $row['round'] . "</td>";
                                             echo "<td>" . $row['circuit_id'] . "</td>";

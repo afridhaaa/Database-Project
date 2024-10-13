@@ -15,7 +15,7 @@ $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'starting_position'; // 
 // Build the SQL query for total results considering search criteria
 $sql_total = "SELECT COUNT(*) AS total 
               FROM results rs 
-              INNER JOIN races r ON rs.raceId = r.race_id 
+              INNER JOIN races r ON rs.raceId = r.raceId 
               INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
               INNER JOIN drivers d ON rs.driverId = d.driverId 
               WHERE rs.position < rs.grid";
@@ -47,7 +47,7 @@ $start_from = ($current_page - 1) * $results_per_page;
 $sql = "SELECT d.forename, r.name AS race_name, rs.grid AS starting_position, 
                rs.position AS final_position, c.constructor_name 
         FROM results rs 
-        INNER JOIN races r ON rs.raceId = r.race_id 
+        INNER JOIN races r ON rs.raceId = r.raceId 
         INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
         INNER JOIN drivers d ON rs.driverId = d.driverId 
         WHERE rs.position < rs.grid";

@@ -14,7 +14,7 @@ $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
 $sql_total = "SELECT COUNT(*) AS total 
               FROM (SELECT r.name AS race_name, c.constructor_name, COUNT(rs.driverId) AS drivers_in_top_5 
                     FROM results rs 
-                    INNER JOIN races r ON rs.raceId = r.race_id 
+                    INNER JOIN races r ON rs.raceId = r.raceId 
                     INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
                     WHERE rs.position <= 5 ";
 
@@ -39,7 +39,7 @@ $start_from = ($current_page - 1) * $results_per_page;
 // SQL query to fetch race name, constructor name, and count of drivers in top 5 with limit
 $sql = "SELECT r.name AS race_name, c.constructor_name, COUNT(rs.driverId) AS drivers_in_top_5 
         FROM results rs 
-        INNER JOIN races r ON rs.raceId = r.race_id 
+        INNER JOIN races r ON rs.raceId = r.raceId 
         INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
         WHERE rs.position <= 5 ";
 

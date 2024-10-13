@@ -8,7 +8,7 @@ $results_per_page = 10;
 // Determine the total number of records for pagination
 $sql_total = "SELECT COUNT(*) AS total 
               FROM results rs 
-              INNER JOIN races r ON rs.raceId = r.race_id 
+              INNER JOIN races r ON rs.raceId = r.raceId 
               INNER JOIN circuits c ON r.circuit_id = c.circuit_id 
               INNER JOIN drivers d ON rs.driverId = d.driverId 
               WHERE r.year = 2015 AND rs.position = 1";
@@ -25,7 +25,7 @@ $start_from = ($current_page - 1) * $results_per_page;
 // SQL query to fetch race name, circuit name, and winning driver for 2015 races with limit
 $sql = "SELECT r.name AS race_name, c.circuit_name, d.forename AS winner 
         FROM results rs 
-        INNER JOIN races r ON rs.raceId = r.race_id 
+        INNER JOIN races r ON rs.raceId = r.raceId 
         INNER JOIN circuits c ON r.circuit_id = c.circuit_id 
         INNER JOIN drivers d ON rs.driverId = d.driverId 
         WHERE r.year = 2015 AND rs.position = 1 

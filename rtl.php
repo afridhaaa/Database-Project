@@ -27,7 +27,7 @@ $sql = "SELECT
         INNER JOIN 
             constructors c ON rs.constructorId = c.constructor_id 
         INNER JOIN 
-            races r ON rs.raceId = r.race_id 
+            races r ON rs.raceId = r.raceId 
         INNER JOIN 
             circuits ci ON r.circuit_id = ci.circuit_id 
         WHERE 
@@ -50,7 +50,7 @@ $sql_total = "SELECT COUNT(DISTINCT d.driverId) AS total
               FROM results rs 
               INNER JOIN drivers d ON rs.driverId = d.driverId 
               INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-              INNER JOIN races r ON rs.raceId = r.race_id 
+              INNER JOIN races r ON rs.raceId = r.raceId 
               INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
               WHERE d.forename LIKE ? OR c.constructor_name LIKE ?";
 $total_stmt = $conn->prepare($sql_total);
@@ -71,9 +71,38 @@ $total_pages = ceil($total_row['total'] / $results_per_page);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />  
     <link rel="stylesheet" href="./assets/css/style.css">
-   
+    <style>
+        /* Make the body and html take the full height */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Flexbox for the entire page layout */
+        .wrapper {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #212529;
+        }
+
+        /* Main content should grow to take available space */
+        #main {
+            flex: 1;
+        }
+
+        /* Footer styling */
+        footer {
+            background-color: #15151E;
+            color: white;
+            text-align: center;
+            padding: 10px 0;
+        }
+    </style>
 </head>
   <body>
+  <div class="wrapper">
    <div class="topbar">
     <div class="container-fluid">
         <div class="row">
@@ -170,22 +199,59 @@ $total_pages = ceil($total_row['total'] / $results_per_page);
 
         <!-- Pagination Controls (Previous and Next only) -->
         <div class="pagination">
-                <?php
-                // Previous button
-                if ($current_page > 1) {
-                    echo '<a href="rtl.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
-                } else {
-                    echo '<span class="disabled">Previous</span>';
-                }
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-                // Next button
-                if ($current_page < $total_pages) {
-                    echo '<a href="rtl.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
-                } else {
-                    echo '<span class="disabled">Next</span>';
-                }
-                ?>
-            </div>
+    // Ensure $total_pages is a valid integer
+    $total_pages = isset($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
+
+    // Define the number of pagination links to show
+    $num_links = 10;
+
+    // Calculate the start and end pages to display
+    $start = max(1, $current_page - floor($num_links / 2));
+    $end = min($total_pages, $start + $num_links - 1);
+
+    // Adjust start if the end page is less than the total links to be shown
+    if ($end - $start + 1 < $num_links) {
+        $start = max(1, $end - $num_links + 1);
+    }
+
+    // Ensure the search and sort parameters exist
+    $search_keyword = isset($search_keyword) ? $search_keyword : '';
+    $sort_order = isset($sort_order) ? $sort_order : 'asc';
+
+    // Display "Previous" button
+    if ($current_page > 1) {
+        echo '<a href="rtl.php?page=' . ($current_page - 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
+
+    // Display page numbers within the calculated range
+    for ($page = $start; $page <= $end; $page++) {
+        if ($page == $current_page) {
+            echo '<span class="current-page">' . $page . '</span>';
+        } else {
+            echo '<a href="rtl.php?page=' . $page . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">' . $page . '</a>';
+        }
+    }
+
+    // Display "Next" button
+    if ($current_page < $total_pages) {
+        echo '<a href="rtl.php?page=' . ($current_page + 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
+</div>
+
+
                         
                     </div>
                 </div>
@@ -195,7 +261,10 @@ $total_pages = ceil($total_row['total'] / $results_per_page);
    </section>
 
 
-
+   <footer>
+        <p style="background-color: #15151E; color: white;">&copy; 2024 Formula Vault. All rights reserved.</p>
+    </footer>
+            </div>
    <script>
     // Show more items when "View More" is clicked
     document.getElementById("view-more-btn").addEventListener("click", function() {

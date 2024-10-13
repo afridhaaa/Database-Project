@@ -30,7 +30,7 @@ $start_from = ($current_page - 1) * $results_per_page;
 $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'DESC';
 $sql = "SELECT d.forename, COUNT(rs.position) AS total_wins, c.circuit_country 
         FROM results rs 
-        INNER JOIN races r ON rs.raceId = r.race_id 
+        INNER JOIN races r ON rs.raceId = r.raceId 
         INNER JOIN circuits c ON r.circuit_id = c.circuit_id 
         INNER JOIN drivers d ON rs.driverId = d.driverId 
         WHERE rs.position = 1 
@@ -148,31 +148,42 @@ $result = $conn->query($sql);
 
  <!-- Pagination Controls -->
  <div class="pagination">
-            <?php
-            // Previous button
-            if ($current_page > 1) {
-                echo '<a href="topdriver.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
-            } else {
-                echo '<span class="disabled">Previous</span>';
-            }
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-            // Page numbers
-            for ($i = 1; $i <= $total_pages; $i++) {
-                if ($i == $current_page) {
-                    echo '<a href="#" class="active">' . $i . '</a>';
-                } else {
-                    echo '<a href="topdriver.php?page=' . $i . '">' . $i . '</a>';
-                }
-            }
+    // Ensure $total_pages is a valid integer and at least 1
+    $total_pages = isset($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
 
-            // Next button
-            if ($current_page < $total_pages) {
-                echo '<a href="topdriver.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
-            } else {
-                echo '<span class="disabled">Next</span>';
-            }
-            ?>
-        </div>
+    // Display "Previous" button
+    if ($current_page > 1) {
+        echo '<a href="topdriver.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
+
+    // Display page numbers
+    for ($i = 1; $i <= $total_pages; $i++) {
+        if ($i == $current_page) {
+            echo '<a href="#" class="current-page">' . $i . '</a>'; // Active page
+        } else {
+            echo '<a href="topdriver.php?page=' . $i . '">' . $i . '</a>';
+        }
+    }
+
+    // Display "Next" button
+    if ($current_page < $total_pages) {
+        echo '<a href="topdriver.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
+</div>
+
                         
                     </div>
                 </div>

@@ -13,7 +13,7 @@ $sql_total = "SELECT COUNT(*) AS total
               FROM results rs 
               INNER JOIN drivers d ON rs.driverId = d.driverId 
               INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-              INNER JOIN races r ON rs.raceId = r.race_id 
+              INNER JOIN races r ON rs.raceId = r.raceId 
               INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
               WHERE rs.position = 1 
               AND c.constructor_id IN (SELECT constructor_id FROM constructors WHERE no_of_titles > 0)";
@@ -41,7 +41,7 @@ $sql = "SELECT d.forename, c.constructor_name, r.name AS race_name, ci.circuit_n
         FROM results rs 
         INNER JOIN drivers d ON rs.driverId = d.driverId 
         INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-        INNER JOIN races r ON rs.raceId = r.race_id 
+        INNER JOIN races r ON rs.raceId = r.raceId 
         INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
         WHERE rs.position = 1 
         AND c.constructor_id IN (SELECT constructor_id FROM constructors WHERE no_of_titles > 0)";
@@ -171,32 +171,57 @@ $result = $conn->query($sql);
 </div>
 
     <!-- Pagination Controls (Previous, Next, and Page Numbers) -->
-    <div class="pagination">
-                <?php
-                // Previous button
-                if ($current_page > 1) {
-                    echo '<a href="alldrivers.php?page=' . ($current_page - 1) . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
-                } else {
-                    echo '<span class="disabled">Previous</span>';
-                }
+<!-- Pagination Controls (Previous, Next, and Limited Page Numbers) -->
+<div class="pagination">
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-                // Display page numbers
-                for ($i = 1; $i <= $total_pages; $i++) {
-                    if ($i == $current_page) {
-                        echo '<span class="active-page">' . $i . '</span>';
-                    } else {
-                        echo '<a href="alldrivers.php?page=' . $i . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $i . '</a>';
-                    }
-                }
+    // Ensure $total_pages is a valid integer and at least 1
+    $total_pages = isset($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
 
-                // Next button
-                if ($current_page < $total_pages) {
-                    echo '<a href="alldrivers.php?page=' . ($current_page + 1) . '&search=' . urlencode($search_keyword) . '" class="button-7">Next</a>';
-                } else {
-                    echo '<span class="disabled">Next</span>';
-                }
-                ?>
-            </div>
+    // Set how many page links to display at once
+    $links_to_show = 5;
+
+    // Calculate the start and end page numbers
+    $start_page = max(1, $current_page - floor($links_to_show / 2));
+    $end_page = min($total_pages, $start_page + $links_to_show - 1);
+
+    // Adjust start page if we are at the end of the pagination range
+    if ($end_page - $start_page + 1 < $links_to_show) {
+        $start_page = max(1, $end_page - $links_to_show + 1);
+    }
+
+    // Display "Previous" button
+    if ($current_page > 1) {
+        echo '<a href="alldrivers.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
+
+    // Display limited page numbers
+    for ($i = $start_page; $i <= $end_page; $i++) {
+        if ($i == $current_page) {
+            echo '<a href="#" class="current-page">' . $i . '</a>'; // Active page
+        } else {
+            echo '<a href="alldrivers.php?page=' . $i . '">' . $i . '</a>';
+        }
+    }
+
+    // Display "Next" button
+    if ($current_page < $total_pages) {
+        echo '<a href="alldrivers.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
+</div>
+
+
                         
                     </div>
                 </div>

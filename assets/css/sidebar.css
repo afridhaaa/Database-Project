@@ -1,0 +1,88 @@
+
+.sidebar {
+    height: 100vh; /* Full viewport height */
+    width: 250px;  /* Adjust the width */
+    position: fixed;  /* Keep sidebar fixed on the left */
+    top: 0;
+    left: 0;
+    background-color: #343a40;  /* Dark background */
+    color: #fff;  /* White text */
+    padding-top: 20px;
+}
+
+/* Remove list item bullets */
+.sidebar ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+/* Add padding and hover effects to sidebar links */
+.sidebar .nav-link {
+    color: #fff;  /* White text */
+    padding: 15px;
+    display: block;
+    text-decoration: none;
+}
+
+.sidebar .nav-link:hover {
+    background-color: #495057;  /* Hover background */
+    color: #fff;
+}
+
+.sidebar .nav-link.active {
+    background-color: #007bff;  /* Active link background */
+    color: white;
+}
+
+h4 {
+    color: #fff;
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+/* Add margin to content to prevent overlap with sidebar */
+.container-fluid {
+    margin-left: 250px;
+    padding: 20px;
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+@font-face {
+    font-family: 'Formula1Bold';
+    src: url('../fonts/Formula1-Bold_web_0.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Formula1Regular';
+    src: url('../fonts/Formula1-Regular_web_0.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Formula1Wide';
+    src: url('../fonts/Formula1-Wide_web_0.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Global styles for fonts */
+body {
+    font-family: 'Formula1Regular';
+}
+
+h1, h2, h3 {
+    font-family: 'Formula1Bold';
+}
+
+.section-wide-text {
+    font-family: 'Formula1Wide';
+}

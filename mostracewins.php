@@ -16,7 +16,7 @@ $sql_total = "SELECT COUNT(*) AS total
               FROM (SELECT d.forename, ci.circuit_name, COUNT(rs.position) AS total_wins 
                     FROM results rs 
                     INNER JOIN drivers d ON rs.driverId = d.driverId 
-                    INNER JOIN races r ON rs.raceId = r.race_id 
+                    INNER JOIN races r ON rs.raceId = r.raceId 
                     INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
                     WHERE rs.position = 1 ";
 
@@ -40,7 +40,7 @@ $start_from = ($current_page - 1) * $results_per_page;
 $sql = "SELECT d.forename, ci.circuit_name, COUNT(rs.position) AS total_wins 
         FROM results rs 
         INNER JOIN drivers d ON rs.driverId = d.driverId 
-        INNER JOIN races r ON rs.raceId = r.race_id 
+        INNER JOIN races r ON rs.raceId = r.raceId 
         INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
         WHERE rs.position = 1 ";
 

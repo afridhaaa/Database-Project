@@ -5,6 +5,59 @@
     box-sizing: border-box;
 }
 
+@font-face {
+    font-family: 'Formula1Bold';
+    src: url('../fonts/Formula1-Bold_web_0.ttf') format('truetype');
+    font-weight: bold;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Formula1Regular';
+    src: url('../fonts/Formula1-Regular_web_0.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Formula1Wide';
+    src: url('../fonts/Formula1-Wide_web_0.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Global styles for fonts */
+body {
+    font-family: 'Formula1Regular';
+}
+
+h1, h2, h3 {
+    font-family: 'Formula1Bold';
+}
+
+.section-wide-text {
+    font-family: 'Formula1Wide';
+}
+
+
+
+html, body {
+    height: 100%;
+}
+
+.wrapper {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.footer {
+    background-color: #15151E;
+    color: white;
+    text-align: center;
+    padding: 10px 0;
+}
+
 .topbar{
     width: 100%;
     background-color: #212429;
@@ -15,7 +68,6 @@
     color: #fff;
     text-align: center;
     padding-top: 12px;
-    font-family: "Roboto", sans-serif;
     font-weight: 700;
     line-height: 40px;
 }
@@ -36,7 +88,7 @@
     border: 0;
     transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out;
 }
-.navbar-nav .nav-link.active, .navbar-nav .nav-link.show {
+.navbar-nav .navbar-nav .nav-link.show {
     color: #fff;
 }
 .navbar-brand {
@@ -66,10 +118,108 @@
     max-height: 100vh;
     overflow-y: auto;
 }
+.swiper-slide {
+    position: relative;
+}
+
+/* Ensure the wrapper aligns everything properly */
+.swiper-container-wrapper {
+    display: flex;
+    justify-content: center;  /* Center horizontally */
+    align-items: center;      /* Center vertically (if needed) */
+    width: 100%;              /* Full width */
+    height: 100%;             /* Ensure it stretches if needed */
+    margin: 0;                /* No extra margins */
+}
+
+/* Make the slide image slightly opaque */
+.slide-image {
+    width: 100%;
+    height: auto;
+    opacity: 0.5;             /* Slightly opaque */
+    transition: opacity 0.3s ease-in-out;  /* Smooth transition */
+}
+
+
+/* Overlay text styling */
+.overlay-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 2rem;
+    font-weight: bold;
+    text-shadow: 2px 2px 8px rgba(0, 0, 0, 0.8); /* Improves readability */
+    z-index: 2;               /* Ensure it stays above the image */
+    text-align: center;
+    width: 100%;              /* Keep text centered */
+    font-family: 'Formula1Bold';
+}
+
+/* Swiper container settings for full width */
+.swiper-container {
+    width: 100%;              /* Full width */
+    max-width: 1200px;        /* Optional: Limit max width */
+    overflow: hidden;         /* Prevent content overflow */
+}
+
 .more-items {
     display: none;
 }
+
+.sidebar {
+    width: 250px; /* Adjust width as needed */
+    padding: 0;
+}
+
+.sidebar-nav {
+    list-style-type: none; /* Remove bullets */
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-nav li {
+    text-align: left; /* Align text to the left */
+    padding: 10px 15px; /* Optional: Adjust spacing */
+}
+
+.sidebar-nav a {
+    display: block; /* Make links block elements */
+    text-decoration: none;
+    color: #000; /* Adjust link color */
+    padding: 8px 0;
+}
+
+.sidebar-nav li.active a {
+    font-weight: bold; /* Optional: Highlight active links */
+}
+
+.dropdown-menu {
+    padding-left: 0; /* Align dropdown items with sidebar */
+}
+
+.dropdown-item {
+    text-align: left; /* Ensure left alignment for dropdown items */
+    padding: 8px 15px;
+}
+
+form {
+    margin: 0; /* Remove default margin around forms */
+    padding: 0;
+}
+
+button.dropdown-item {
+    width: 100%; /* Make buttons fill their container */
+    text-align: left; /* Align button text to the left */
+    border: none; /* Remove button borders */
+    background: none; /* Remove default background */
+    padding: 8px 15px;
+    cursor: pointer;
+}
+
 .sidebar-nav{
+    /* background-color: black; */
     padding: 0px;
 }
 .sidebar-nav li{
@@ -80,7 +230,6 @@
 .sidebar-nav li .button-7 {
     color: #ffffff;
     text-decoration: none;
-    font-family: "Noto Sans", sans-serif;
     font-weight: 400;
     font-size: 16px;
     outline: 0px;
@@ -106,7 +255,6 @@
     color: #fff;
     text-align: center;
     padding-top: 12px;
-    font-family: "Roboto", sans-serif;
     font-weight: 700;
     line-height: 52px;
     text-transform: capitalize;
@@ -281,7 +429,6 @@
     color: #fff;
     cursor: pointer;
     display: inline-block;
-    font-family: -apple-system,system-ui,"Segoe UI","Liberation Sans",sans-serif;
     font-size: 13px;
     font-weight: 400;
     line-height: 1.15385;
@@ -368,4 +515,17 @@
     .table-dark th{
         font-size: 10px;
     }
+}
+
+.sidebar .nav-link {
+    color: #fff !important; 
+}
+
+.sidebar .nav-link:hover {
+    color: #e94747 !important;
+}
+
+.sidebar-nav li.active a {
+    color: #e94747; 
+    font-weight: bold;
 }

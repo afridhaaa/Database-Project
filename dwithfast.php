@@ -13,7 +13,7 @@ $sql_total = "SELECT COUNT(*) AS total
               FROM results rs 
               INNER JOIN drivers d ON rs.driverId = d.driverId 
               INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-              INNER JOIN races r ON rs.raceId = r.race_id 
+              INNER JOIN races r ON rs.raceId = r.raceId 
               WHERE c.constructor_id IN (SELECT constructorId FROM results WHERE position <= 3) 
               AND (d.forename LIKE ? OR c.constructor_name LIKE ?)";
 $stmt = $conn->prepare($sql_total);
@@ -35,7 +35,7 @@ $sql = "SELECT d.forename, c.constructor_name, r.name AS race_name, rs.fastestLa
         FROM results rs 
         INNER JOIN drivers d ON rs.driverId = d.driverId 
         INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-        INNER JOIN races r ON rs.raceId = r.race_id 
+        INNER JOIN races r ON rs.raceId = r.raceId 
         WHERE c.constructor_id IN (SELECT constructorId FROM results WHERE position <= 3) 
         AND (d.forename LIKE ? OR c.constructor_name LIKE ?)
         ORDER BY rs.fastestLapSpeed $sort_order 
@@ -145,35 +145,77 @@ $result = $stmt->get_result();
         </tbody>
       </table>
       
+      <div class="pagination">
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
+
+    // Ensure $total_pages is always an integer and greater than zero
+    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
+
+    // Ensure search and sort parameters have default values
+    $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
+    $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'asc';
+
+    // Define how many page links to display at once
+    $total_display_pages = 10;
+
+    // Display "Previous" button
+    if ($current_page > 1) {
+        echo '<a href="dwithfast.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
+
+    // Show the first page link, always
+    if ($start_page > 2) {
+        echo '<a href="dwithfast.php?page=1&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">1</a>';
+        echo '<span class="disabled">...</span>'; // Ellipsis for skipped pages
+    }
+
+    // Calculate start and end pages for pagination
+    $start_page = max(2, $current_page - floor($total_display_pages / 2));
+    $end_page = min($total_pages - 1, $current_page + floor($total_display_pages / 2));
+
+    // Adjust if the range is close to the beginning or end
+    if ($start_page < 2) {
+        $start_page = 2;
+        $end_page = min($total_pages - 1, $total_display_pages);
+    } elseif ($end_page >= $total_pages - 1) {
+        $end_page = $total_pages - 1;
+        $start_page = max(2, $end_page - $total_display_pages + 1);
+    }
+
+    // Display the middle range of pages
+    for ($i = $start_page; $i <= $end_page; $i++) {
+        if ($i == $current_page) {
+            echo '<span class="active-page">' . $i . '</span>'; // Highlight current page
+        } else {
+            echo '<a href="dwithfast.php?page=' . $i . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $i . '</a>';
+        }
+    }
+
+    // Show the last page link, always
+    if ($end_page < $total_pages - 1) {
+        echo '<span class="disabled">...</span>'; // Ellipsis for skipped pages
+        echo '<a href="dwithfast.php?page=' . $total_pages . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $total_pages . '</a>';
+    }
+
+    // Display "Next" button
+    if ($current_page < $total_pages) {
+        echo '<a href="dwithfast.php?page=' . ($current_page + 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
 </div>
 
-    <!-- Pagination Controls (Previous, Page Numbers, and Next) -->
-    <div class="pagination">
-                <?php
-                // Previous button
-                if ($current_page > 1) {
-                    echo '<a href="dwithfast.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
-                } else {
-                    echo '<span class="disabled">Previous</span>';
-                }
 
-                // Page number links
-                for ($i = 1; $i <= $total_pages; $i++) {
-                    if ($i == $current_page) {
-                        echo '<span class="active-page">' . $i . '</span>';
-                    } else {
-                        echo '<a href="dwithfast.php?page=' . $i . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $i . '</a>';
-                    }
-                }
 
-                // Next button
-                if ($current_page < $total_pages) {
-                    echo '<a href="dwithfast.php?page=' . ($current_page + 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Next</a>';
-                } else {
-                    echo '<span class="disabled">Next</span>';
-                }
-                ?>
-            </div>
                         
                     </div>
                 </div>

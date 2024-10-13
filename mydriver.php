@@ -138,31 +138,42 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
 
                         <!-- Pagination Controls -->
                         <div class="pagination">
-                            <?php
-                            // Previous button
-                            if ($current_page > 1) {
-                                echo '<a href="mydriver.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
-                            } else {
-                                echo '<span class="disabled">Previous</span>';
-                            }
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-                            // Page numbers
-                            for ($i = 1; $i <= $total_pages; $i++) {
-                                if ($i == $current_page) {
-                                    echo '<a href="#" class="active">' . $i . '</a>'; // Active page
-                                } else {
-                                    echo '<a href="mydriver.php?page=' . $i . '">' . $i . '</a>';
-                                }
-                            }
+    // Ensure $total_pages is a valid integer
+    $total_pages = isset($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
 
-                            // Next button
-                            if ($current_page < $total_pages) {
-                                echo '<a href="mydriver.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
-                            } else {
-                                echo '<span class="disabled">Next</span>';
-                            }
-                            ?>
-                        </div>
+    // Display "Previous" button
+    if ($current_page > 1) {
+        echo '<a href="mydriver.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
+
+    // Display page numbers
+    for ($i = 1; $i <= $total_pages; $i++) {
+        if ($i == $current_page) {
+            echo '<a href="#" class="current-page">' . $i . '</a>'; // Active page
+        } else {
+            echo '<a href="mydriver.php?page=' . $i . '">' . $i . '</a>';
+        }
+    }
+
+    // Display "Next" button
+    if ($current_page < $total_pages) {
+        echo '<a href="mydriver.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
+</div>
+
                         
                     </div>
                 </div>

@@ -49,8 +49,38 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="./assets/css/style.css">
+    <style>
+        /* Make the body and html take the full height */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Flexbox for the entire page layout */
+        .wrapper {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background-color: #212529;
+        }
+
+        /* Main content should grow to take available space */
+        #main {
+            flex: 1;
+        }
+
+        /* Footer styling */
+        footer {
+            background-color: #15151E;
+            color: white;
+            text-align: center;
+            padding: 10px 0;
+        }
+    </style>
 </head>
   <body>
+  <div class="wrapper">
    <div class="topbar">
     <div class="container-fluid">
         <div class="row">
@@ -147,39 +177,53 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
 
                         <!-- Pagination Controls -->
                         <div class="pagination">
-                            <?php
-                            // Previous button
-                            if ($current_page > 1) {
-                                echo '<a href="mycircuit.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
-                            } else {
-                                echo '<span class="disabled">Previous</span>';
-                            }
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-                            // Page numbers
-                            for ($i = 1; $i <= $total_pages; $i++) {
-                                if ($i == $current_page) {
-                                    echo '<a href="#" class="active">' . $i . '</a>'; // Active page
-                                } else {
-                                    echo '<a href="mycircuit.php?page=' . $i . '">' . $i . '</a>';
-                                }
-                            }
+    // Ensure total_pages is properly set and is at least 1
+    $total_pages = isset($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
 
-                            // Next button
-                            if ($current_page < $total_pages) {
-                                echo '<a href="mycircuit.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
-                            } else {
-                                echo '<span class="disabled">Next</span>';
-                            }
-                            ?>
-                        </div>
-                        
+    // Previous button
+    if ($current_page > 1) {
+        echo '<a href="mycircuit.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
+
+    // Page numbers
+    for ($i = 1; $i <= $total_pages; $i++) {
+        if ($i == $current_page) {
+            echo '<a href="mycircuit.php?page=' . $i . '" class="active">' . $i . '</a>'; // Active page
+        } else {
+            echo '<a href="mycircuit.php?page=' . $i . '">' . $i . '</a>';
+        }
+    }
+
+    // Next button
+    if ($current_page < $total_pages) {
+        echo '<a href="mycircuit.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
+</div>
+
+
                     </div>
                 </div>
             </div>
         </div>
     </div>
    </section>
-
+   <footer>
+        <p style="background-color: #15151E; color: white;">&copy; 2024 Formula Vault. All rights reserved.</p>
+    </footer>
+</div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>

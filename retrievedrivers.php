@@ -11,7 +11,7 @@ $sql_total = "SELECT COUNT(*) AS total
                     FROM results rs 
                     INNER JOIN drivers d ON rs.driverId = d.driverId 
                     INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-                    INNER JOIN races r ON rs.raceId = r.race_id 
+                    INNER JOIN races r ON rs.raceId = r.raceId 
                     INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
                     GROUP BY d.forename, c.constructor_name, ci.circuit_name 
                     HAVING total_points > 50) AS subquery";
@@ -31,7 +31,7 @@ $sql = "SELECT d.forename, c.constructor_name, ci.circuit_name, SUM(rs.points) A
         FROM results rs 
         INNER JOIN drivers d ON rs.driverId = d.driverId 
         INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-        INNER JOIN races r ON rs.raceId = r.race_id 
+        INNER JOIN races r ON rs.raceId = r.raceId 
         INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
         GROUP BY d.forename, c.constructor_name, ci.circuit_name 
         HAVING total_points > 50 
@@ -122,16 +122,47 @@ $result = $conn->query($sql);
 </div>
 
     <!-- Pagination Controls (Previous and Next only) -->
-<div class="pagination">
+    <div class="pagination">
     <?php
-    // Previous button
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
+
+    // Ensure $total_pages is a valid integer
+    $total_pages = isset($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
+
+    // Set how many page links to show at once
+    $links_to_show = 5;
+
+    // Calculate start and end pages for the pagination range
+    $start_page = max(1, $current_page - floor($links_to_show / 2));
+    $end_page = min($total_pages, $start_page + $links_to_show - 1);
+
+    // Adjust start page if there are fewer pages on the right side
+    if ($end_page - $start_page + 1 < $links_to_show) {
+        $start_page = max(1, $end_page - $links_to_show + 1);
+    }
+
+    // Display "Previous" button
     if ($current_page > 1) {
         echo '<a href="retrievedrivers.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
     } else {
         echo '<span class="disabled">Previous</span>';
     }
 
-    // Next button
+    // Display page numbers
+    for ($i = $start_page; $i <= $end_page; $i++) {
+        if ($i == $current_page) {
+            echo '<a href="#" class="current-page">' . $i . '</a>'; // Active page
+        } else {
+            echo '<a href="retrievedrivers.php?page=' . $i . '">' . $i . '</a>';
+        }
+    }
+
+    // Display "Next" button
     if ($current_page < $total_pages) {
         echo '<a href="retrievedrivers.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
     } else {
@@ -139,6 +170,7 @@ $result = $conn->query($sql);
     }
     ?>
 </div>
+
                         
                     </div>
                 </div>

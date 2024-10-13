@@ -142,31 +142,46 @@ $result = $conn->query($sql);
 
 <!-- Pagination Controls -->
 <div class="pagination">
-                        <?php
-                        // Previous button
-                        if ($current_page > 1) {
-                            echo '<a href="avgpoint.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order . '&search=' . $search_keyword . '" class="button-7">Previous</a>';
-                        } else {
-                            echo '<span class="disabled">Previous</span>';
-                        }
-                        
-                        // Page numbers
-                        for ($i = 1; $i <= $total_pages; $i++) {
-                            if ($i == $current_page) {
-                                echo '<a href="#" class="active">' . $i . '</a>'; // Active page
-                            } else {
-                                echo '<a href="avgpoint.php?page=' . $i . '&sort_order=' . $sort_order . '&search=' . $search_keyword . '">' . $i . '</a>';
-                            }
-                        }
+    <?php
+    // Ensure $current_page is an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-                        // Next button
-                        if ($current_page < $total_pages) {
-                            echo '<a href="avgpoint.php?page=' . ($current_page + 1) . '&sort_order=' . $sort_order . '&search=' . $search_keyword . '" class="button-7">Next</a>';
-                        } else {
-                            echo '<span class="disabled">Next</span>';
-                        }
-                        ?>
-                    </div>
+    // Ensure $total_pages is a valid integer
+    $total_pages = isset($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
+
+    // Ensure search and sort parameters have default values
+    $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
+    $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'asc';
+
+    // Display "Previous" button
+    if ($current_page > 1) {
+        echo '<a href="avgpoint.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
+
+    // Display page numbers
+    for ($i = 1; $i <= $total_pages; $i++) {
+        if ($i == $current_page) {
+            echo '<a href="#" class="current-page">' . $i . '</a>'; // Active page
+        } else {
+            echo '<a href="avgpoint.php?page=' . $i . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '">' . $i . '</a>';
+        }
+    }
+
+    // Display "Next" button
+    if ($current_page < $total_pages) {
+        echo '<a href="avgpoint.php?page=' . ($current_page + 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
+</div>
+
                         
                     </div>
                 </div>

@@ -13,7 +13,7 @@ $sql_total = "SELECT COUNT(*) AS total
               FROM (SELECT ci.circuit_name, d.forename, AVG(lap.milliseconds) AS avg_speed 
                     FROM lap_times lap 
                     INNER JOIN drivers d ON lap.driverId = d.driverId 
-                    INNER JOIN races r ON lap.raceId = r.race_id 
+                    INNER JOIN races r ON lap.raceId = r.raceId 
                     INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
                     WHERE ci.circuit_name LIKE ? OR d.forename LIKE ?
                     GROUP BY ci.circuit_name, d.forename) AS subquery";
@@ -36,7 +36,7 @@ $start_from = ($current_page - 1) * $results_per_page;
 $sql = "SELECT ci.circuit_name, d.forename, AVG(lap.milliseconds) AS avg_speed 
         FROM lap_times lap 
         INNER JOIN drivers d ON lap.driverId = d.driverId 
-        INNER JOIN races r ON lap.raceId = r.race_id 
+        INNER JOIN races r ON lap.raceId = r.raceId 
         INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
         WHERE ci.circuit_name LIKE ? OR d.forename LIKE ?
         GROUP BY ci.circuit_name, d.forename 
@@ -156,33 +156,77 @@ $result = $stmt->get_result();
 </div>
 
      <!-- Pagination Controls with Page Numbers -->
-     <div class="pagination">
-                <?php
-                // Previous button
-                if ($current_page > 1) {
-                    echo '<a href="avgspeed.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
-                } else {
-                    echo '<span class="button-7 disabled">Previous</span>';
-                }
+     <!-- Pagination Controls with Page Numbers -->
+<div class="pagination">
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-                // Display page numbers
-                for ($i = 1; $i <= $total_pages; $i++) {
-                    if ($i == $current_page) {
-                        // Current page number with special styling
-                        echo '<span class="button-7 active">' . $i . '</span>';
-                    } else {
-                        echo '<a href="avgspeed.php?page=' . $i . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $i . '</a>';
-                    }
-                }
+    // Ensure $total_pages is a valid integer
+    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
 
-                // Next button
-                if ($current_page < $total_pages) {
-                    echo '<a href="avgspeed.php?page=' . ($current_page + 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Next</a>';
-                } else {
-                    echo '<span class="button-7 disabled">Next</span>';
-                }
-                ?>
-            </div>
+    // Ensure search and sort parameters have default values
+    $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
+    $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'asc';
+
+    // Limit the number of visible page links
+    $max_visible_pages = 5;
+
+    // Calculate start and end page numbers
+    $start_page = max(1, $current_page - floor($max_visible_pages / 2));
+    $end_page = min($total_pages, $start_page + $max_visible_pages - 1);
+
+    // Adjust the start page if we're near the end
+    if ($end_page - $start_page + 1 < $max_visible_pages) {
+        $start_page = max(1, $end_page - $max_visible_pages + 1);
+    }
+
+    // Display "Previous" button
+    if ($current_page > 1) {
+        echo '<a href="avgspeed.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="button-7 disabled">Previous</span>';
+    }
+
+    // Display the first page and ellipsis if needed
+    if ($start_page > 1) {
+        echo '<a href="avgspeed.php?page=1&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">1</a>';
+        if ($start_page > 2) {
+            echo '<span class="button-7">...</span>'; // Ellipsis
+        }
+    }
+
+    // Display the dynamic page numbers
+    for ($i = $start_page; $i <= $end_page; $i++) {
+        if ($i == $current_page) {
+            echo '<span class="button-7 active">' . $i . '</span>';
+        } else {
+            echo '<a href="avgspeed.php?page=' . $i . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $i . '</a>';
+        }
+    }
+
+    // Display the last page and ellipsis if needed
+    if ($end_page < $total_pages) {
+        if ($end_page < $total_pages - 1) {
+            echo '<span class="button-7">...</span>'; // Ellipsis
+        }
+        echo '<a href="avgspeed.php?page=' . $total_pages . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $total_pages . '</a>';
+    }
+
+    // Display "Next" button
+    if ($current_page < $total_pages) {
+        echo '<a href="avgspeed.php?page=' . ($current_page + 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="button-7 disabled">Next</span>';
+    }
+    ?>
+</div>
+
+
                         
                     </div>
                 </div>

@@ -24,18 +24,18 @@ $sql = "SELECT
         INNER JOIN 
             constructors c ON rs.constructorId = c.constructor_id 
         INNER JOIN 
-            races r ON rs.raceId = r.race_id 
+            races r ON rs.raceId = r.raceId 
         INNER JOIN 
             circuits ci ON r.circuit_id = ci.circuit_id 
         WHERE 
             rs.position = 1 
-            AND ci.circuit_country = 'Australia' 
             AND c.constructor_name LIKE ? 
         GROUP BY 
             c.constructor_name, r.year 
         ORDER BY 
             total_wins $sort_order 
         LIMIT $start_from, $results_per_page";
+
 
 $stmt = $conn->prepare($sql);
 $search_param = "%" . $search_keyword . "%";
@@ -44,15 +44,15 @@ $stmt->execute();
 $result = $stmt->get_result();
 
 // Count total results for pagination
-$sql_total = "SELECT COUNT(DISTINCT c.constructor_name) AS total 
+$sql_total = "SELECT COUNT(DISTINCT c.constructor_name, r.year) AS total 
               FROM results rs 
               INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-              INNER JOIN races r ON rs.raceId = r.race_id 
+              INNER JOIN races r ON rs.raceId = r.raceId 
               INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
               WHERE rs.position = 1 
-              AND ci.circuit_country = 'Australia' 
-              AND c.constructor_name LIKE ? 
-              GROUP BY c.constructor_name, r.year";
+              AND c.constructor_name LIKE ?";
+
+
 
 $stmt_total = $conn->prepare($sql_total);
 $stmt_total->bind_param("s", $search_param);
@@ -101,7 +101,7 @@ $total_pages = ceil($total_row['total'] / $results_per_page);
         <a href="index.php" class="button-8">← Back to Home</a>
     </div>
                             <div class="head">
-     <h2>Constructor Wins in Australia by Year</h2>
+     <h2>Constructor Wins by Year</h2>
                             </div>
                         </div>
                         
@@ -169,22 +169,55 @@ $total_pages = ceil($total_row['total'] / $results_per_page);
 
        <!-- Pagination Controls (Previous and Next only) -->
        <div class="pagination">
-                <?php
-                // Previous button
-                if ($current_page > 1) {
-                    echo '<a href="cona.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
-                } else {
-                    echo '<span class="disabled">Previous</span>';
-                }
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-                // Next button
-                if ($current_page < $total_pages) {
-                    echo '<a href="cona.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
-                } else {
-                    echo '<span class="disabled">Next</span>';
-                }
-                ?>
-            </div>
+    // Ensure $total_pages is a valid integer
+    $total_pages = isset($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
+
+    // Number of pagination links to display
+    $num_links = 5;
+
+    // Calculate the start and end page for the pagination display
+    $start = max(1, $current_page - floor($num_links / 2));
+    $end = min($total_pages, $start + $num_links - 1);
+
+    // Adjust start if there are fewer pages on the right side
+    if ($end - $start + 1 < $num_links) {
+        $start = max(1, $end - $num_links + 1);
+    }
+
+    // Display "Previous" button
+    if ($current_page > 1) {
+        echo '<a href="cona.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
+
+    // Display page numbers
+    for ($i = $start; $i <= $end; $i++) {
+        if ($i == $current_page) {
+            echo '<span class="current-page">' . $i . '</span>'; // Current page
+        } else {
+            echo '<a href="cona.php?page=' . $i . '" class="button-7">' . $i . '</a>';
+        }
+    }
+
+    // Display "Next" button
+    if ($current_page < $total_pages) {
+        echo '<a href="cona.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
+</div>
+
+
                         
                     </div>
                 </div>

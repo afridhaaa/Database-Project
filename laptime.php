@@ -12,7 +12,7 @@ $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'ASC';
 $sql_total = "SELECT COUNT(*) AS total 
               FROM results rs 
               INNER JOIN drivers d ON rs.driverId = d.driverId 
-              INNER JOIN races r ON rs.raceId = r.race_id 
+              INNER JOIN races r ON rs.raceId = r.raceId 
               INNER JOIN circuits c ON r.circuit_id = c.circuit_id
               WHERE (d.forename LIKE '%$search_keyword%' OR r.name LIKE '%$search_keyword%') 
               AND rs.fastestLapTime IS NOT NULL";
@@ -30,7 +30,7 @@ $start_from = ($current_page - 1) * $results_per_page;
 $sql = "SELECT d.forename, r.name AS race_name, c.circuit_name, rs.fastestLapTime AS fastest_lap_time 
         FROM results rs 
         INNER JOIN drivers d ON rs.driverId = d.driverId 
-        INNER JOIN races r ON rs.raceId = r.race_id 
+        INNER JOIN races r ON rs.raceId = r.raceId 
         INNER JOIN circuits c ON r.circuit_id = c.circuit_id
         WHERE (d.forename LIKE '%$search_keyword%' OR r.name LIKE '%$search_keyword%') 
         AND rs.fastestLapTime IS NOT NULL
@@ -149,30 +149,74 @@ $result = $conn->query($sql);
 
     <!-- Pagination Controls (Previous and Next only) -->
     <div class="pagination">
-                <?php
-                // Display page numbers and previous/next controls
-                if ($current_page > 1) {
-                    echo '<a href="laptime.php?page=' . ($current_page - 1) . '&search=' . $search_keyword . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
-                } else {
-                    echo '<span class="disabled">Previous</span>';
-                }
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-                // Display page numbers
-                for ($page = 1; $page <= $total_pages; $page++) {
-                    if ($page == $current_page) {
-                        echo '<span class="current-page">' . $page . '</span>';
-                    } else {
-                        echo '<a href="laptime.php?page=' . $page . '&search=' . $search_keyword . '&sort_order=' . $sort_order . '" class="button-7">' . $page . '</a>';
-                    }
-                }
+    // Ensure $total_pages is always an integer and greater than zero
+    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
 
-                if ($current_page < $total_pages) {
-                    echo '<a href="laptime.php?page=' . ($current_page + 1) . '&search=' . $search_keyword . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
-                } else {
-                    echo '<span class="disabled">Next</span>';
-                }
-                ?>
-            </div>
+    // Ensure search and sort parameters have default values
+    $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
+    $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'asc';
+
+    // Define how many page links to display at once
+    $total_display_pages = 10;
+
+    // Calculate start and end pages
+    $start_page = max(2, $current_page - floor($total_display_pages / 2));
+    $end_page = min($total_pages - 1, $current_page + floor($total_display_pages / 2));
+
+    // Adjust the range if the current page is near the beginning or the end
+    if ($start_page < 2) {
+        $start_page = 2;
+        $end_page = min($total_pages - 1, $total_display_pages);
+    } elseif ($end_page >= $total_pages - 1) {
+        $end_page = $total_pages - 1;
+        $start_page = max(2, $end_page - $total_display_pages + 1);
+    }
+
+    // Display "Previous" button
+    if ($current_page > 1) {
+        echo '<a href="laptime.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
+
+    // Show the first page link, always
+    if ($start_page > 2) {
+        echo '<a href="laptime.php?page=1&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">1</a>';
+        echo '<span class="disabled">...</span>'; // Ellipsis
+    }
+
+    // Display middle range of pages
+    for ($i = $start_page; $i <= $end_page; $i++) {
+        if ($i == $current_page) {
+            echo '<span class="active-page">' . $i . '</span>'; // Highlight current page
+        } else {
+            echo '<a href="laptime.php?page=' . $i . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $i . '</a>';
+        }
+    }
+
+    // Show the last page link, always
+    if ($end_page < $total_pages - 1) {
+        echo '<span class="disabled">...</span>'; // Ellipsis
+        echo '<a href="laptime.php?page=' . $total_pages . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $total_pages . '</a>';
+    }
+
+    // Display "Next" button
+    if ($current_page < $total_pages) {
+        echo '<a href="laptime.php?page=' . ($current_page + 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
+</div>
+
                         
                     </div>
                 </div>

@@ -15,7 +15,7 @@ $start_from = ($current_page - 1) * $results_per_page;
 $sql = "SELECT d.forename, r.year, COUNT(rs.raceId) AS total_races, AVG(rs.points) AS avg_points 
         FROM results rs 
         INNER JOIN drivers d ON rs.driverId = d.driverId 
-        INNER JOIN races r ON rs.raceId = r.race_id 
+        INNER JOIN races r ON rs.raceId = r.raceId 
         WHERE r.year = 2020 
         GROUP BY d.forename, r.year 
         ORDER BY avg_points DESC 
@@ -27,7 +27,7 @@ $result = $conn->query($sql);
 $sql_total = "SELECT COUNT(DISTINCT d.driverId) AS total 
               FROM results rs 
               INNER JOIN drivers d ON rs.driverId = d.driverId 
-              INNER JOIN races r ON rs.raceId = r.race_id 
+              INNER JOIN races r ON rs.raceId = r.raceId 
               WHERE r.year = 2020";
 
 $total_result = $conn->query($sql_total);
