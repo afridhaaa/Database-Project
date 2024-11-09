@@ -19,24 +19,22 @@ $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'ASC';
 $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
 
 // Construct SQL query for fetching results data with sorting and search
-$sql = "SELECT resultId, positionOrder, `position`, points, time, fastestLap, fastestLapTime, fastestLapSpeed, rank 
-    FROM results 
-    WHERE `position` LIKE '%$search_keyword%' 
-    OR points LIKE '%$search_keyword%' 
-    OR rank LIKE '%$search_keyword%' 
-    ORDER BY `position` $sort_order 
-    LIMIT $start_from, $results_per_page
-    ";
+$sql = "SELECT resultId, positionOrder, position, points, time, fastestLap, fastestLapTime, fastestLapSpeed, rank 
+        FROM results 
+        WHERE position LIKE '%$search_keyword%' 
+        OR points LIKE '%$search_keyword%' 
+        OR rank LIKE '%$search_keyword%' 
+        ORDER BY position $sort_order 
+        LIMIT $start_from, $results_per_page";
 
 $result = $conn->query($sql);
 
 // Find out the total number of pages
 $total_sql = "SELECT COUNT(*) AS total 
-                FROM results 
-                WHERE `position` LIKE '%$search_keyword%' 
-                OR points LIKE '%$search_keyword%' 
-                OR rank LIKE '%$search_keyword%'
-                ";
+              FROM results 
+              WHERE position LIKE '%$search_keyword%' 
+              OR points LIKE '%$search_keyword%' 
+              OR rank LIKE '%$search_keyword%'";
 $total_result = $conn->query($total_sql);
 $total_row = $total_result->fetch_assoc();
 $total_pages = ceil($total_row["total"] / $results_per_page);
@@ -87,6 +85,9 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-2">
+                <div class="heading">
+                  <a href="index.php"><h4>Formula1</h4></a>
+                </div>
             </div>
         </div>
     </div>

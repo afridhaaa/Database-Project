@@ -1,0 +1,19 @@
+.* export-ignore
+*.md export-ignore
+tests export-ignore
+benchmark export-ignore
+docs export-ignore
+examples export-ignore
+mongo-orchestration export-ignore
+stubs export-ignore
+tools export-ignore
+Makefile export-ignore
+phpbench.json.dist export-ignore
+phpcs.xml.dist export-ignore
+phpunit.evergreen.xml export-ignore
+phpunit.xml.dist export-ignore
+psalm.xml.dist export-ignore
+psalm-baseline.xml export-ignore
+
+# Prevent generated build files from showing diffs in pull requests
+.evergreen/config/generated/** linguist-generated=true

@@ -1,20 +1,20 @@
 <?php
-// Database connection parameters
-$host = "35.212.235.18";    // Host name
-$username = "db-sqldev";     // Database username
-$password = "root";         // Database password
-$database = "F1_Dataset";  // Your database name
+require __DIR__ . '/../vendor/autoload.php';
+// Include Composer's autoload file
 
-// Enable error reporting
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+// MongoDB Atlas connection string
+$host = "mongodb+srv://root:root@formulavault.860xw.mongodb.net/?retryWrites=true&w=majority&appName=FormulaVault";
+ 
 
-// Create a connection
-$conn = new mysqli($host, $username, $password, $database);
+try {
+    // Create a MongoDB client
+    $client = new MongoDB\Client($host);
+    
+    // Select the database
+    $db = $client->FormulaVault;
 
-// Check the connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
+    echo "Connected to MongoDB Atlas successfully!";
+} catch (Exception $e) {
+    die("Connection failed: " . $e->getMessage());
 }
 ?>

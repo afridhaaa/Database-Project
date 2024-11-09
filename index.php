@@ -1,4 +1,8 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 include 'db/db.php';
 include 'process.php';
 
@@ -8,36 +12,46 @@ $results_per_page = 10;
 // Determine which page number visitor is currently on
 $current_page = isset($_GET['page']) ? $_GET['page'] : 1;
 
-// Determine the SQL LIMIT starting number for the results on the displaying page
+// Determine the MongoDB skip and limit for pagination
 $start_from = ($current_page - 1) * $results_per_page;
 
-// SQL query to fetch constructor data with LIMIT for pagination
-$sql = "SELECT constructor_name, no_of_pole_positions, no_of_titles, constructor_points, nationality, url 
-        FROM constructors 
-        ORDER BY constructor_points DESC 
-        LIMIT $start_from, $results_per_page";
-$result = $conn->query($sql);
+// MongoDB query to fetch constructor data with LIMIT for pagination
+$constructor_collection = $db->constructors;
+$constructors = $constructor_collection->find(
+    [],
+    [
+        'sort' => ['constructor_points' => -1],
+        'skip' => $start_from,
+        'limit' => $results_per_page,
+    ]
+)->toArray();
 
-// Find out the total number of pages
-$total_sql = "SELECT COUNT(*) AS total FROM constructors";
-$total_result = $conn->query($total_sql);
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row["total"] / $results_per_page);
+// Calculate the total number of pages
+$total_constructors = $constructor_collection->countDocuments();
+$total_pages = ceil($total_constructors / $results_per_page);
 
-// SQL query to fetch top 5 drivers based on points
-$top_drivers_sql = "SELECT d.forename, ds.points 
-                    FROM drivers d 
-                    JOIN driver_standings ds ON d.driverId = ds.driverId 
-                    ORDER BY ds.points DESC 
-                    LIMIT 5";
-$top_drivers_result = $conn->query($top_drivers_sql);
+// MongoDB query to fetch top 5 drivers based on points
+$driver_collection = $db->drivers;
+$top_drivers = $driver_collection->aggregate([
+    ['$lookup' => [
+        'from' => 'driver_standings',
+        'localField' => 'driverId',
+        'foreignField' => 'driverId',
+        'as' => 'standings'
+    ]],
+    ['$unwind' => '$standings'],
+    ['$sort' => ['standings.points' => -1]],
+    ['$limit' => 5],
+])->toArray();
 
-// SQL query to fetch top 5 constructors based on points
-$top_constructors_sql = "SELECT constructor_name, constructor_points 
-                         FROM constructors 
-                         ORDER BY constructor_points DESC 
-                         LIMIT 5";
-$top_constructors_result = $conn->query($top_constructors_sql);
+// MongoDB query to fetch top 5 constructors based on points
+$top_constructors = $constructor_collection->find(
+    [],
+    [
+        'sort' => ['constructor_points' => -1],
+        'limit' => 5,
+    ]
+)->toArray();
 ?>
 <!doctype html>
 <html lang="en">
@@ -50,7 +64,6 @@ $top_constructors_result = $conn->query($top_constructors_sql);
     <link rel="stylesheet" href="assets/css/style.css">
     <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 </head>
 <body>
 <div class="wrapper">
@@ -124,15 +137,11 @@ $top_constructors_result = $conn->query($top_constructors_sql);
                             </thead>
                             <tbody>
                                 <?php
-                                if ($top_drivers_result->num_rows > 0) {
-                                    while ($driver = $top_drivers_result->fetch_assoc()) {
-                                        echo "<tr>";
-                                        echo "<td>" . $driver['forename'] . "</td>";
-                                        echo "<td>" . $driver['points'] . "</td>";
-                                        echo "</tr>";
-                                    }
-                                } else {
-                                    echo "<tr><td colspan='2'>No data available</td></tr>";
+                                foreach ($top_drivers as $driver) {
+                                    echo "<tr>";
+                                    echo "<td>" . $driver['forename'] . "</td>";
+                                    echo "<td>" . $driver['standings']['points'] . "</td>";
+                                    echo "</tr>";
                                 }
                                 ?>
                             </tbody>
@@ -163,15 +172,11 @@ $top_constructors_result = $conn->query($top_constructors_sql);
                             </thead>
                             <tbody>
                                 <?php
-                                if ($top_constructors_result->num_rows > 0) {
-                                    while ($constructor = $top_constructors_result->fetch_assoc()) {
-                                        echo "<tr>";
-                                        echo "<td>" . $constructor['constructor_name'] . "</td>";
-                                        echo "<td>" . $constructor['constructor_points'] . "</td>";
-                                        echo "</tr>";
-                                    }
-                                } else {
-                                    echo "<tr><td colspan='2'>No data available</td></tr>";
+                                foreach ($top_constructors as $constructor) {
+                                    echo "<tr>";
+                                    echo "<td>" . $constructor['constructor_name'] . "</td>";
+                                    echo "<td>" . $constructor['constructor_points'] . "</td>";
+                                    echo "</tr>";
                                 }
                                 ?>
                             </tbody>

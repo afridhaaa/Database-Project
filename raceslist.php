@@ -53,6 +53,11 @@ $result = $conn->query($sql);
    <div class="topbar">
     <div class="container-fluid">
         <div class="row">
+            <div class="col-md-2">
+                <div class="heading">
+                  <a href="index.php">  <h4>Formula1</h4></a>
+                </div>
+            </div>
         </div>
     </div>
    </div>

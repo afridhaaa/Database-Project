@@ -2,7 +2,7 @@
 include 'db/db.php';  // Include your database connection
 
 // Set the number of results per page
-$results_per_page = 10;
+$results_per_page = 13;
 
 // Get search keyword and sort order from GET parameters
 $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
@@ -54,6 +54,11 @@ $result = $conn->query($sql);
    <div class="topbar">
     <div class="container-fluid">
         <div class="row">
+            <div class="col-md-2">
+                <div class="heading">
+                  <a href="index.php">  <h4>Formula1</h4></a>
+                </div>
+            </div>
         </div>
     </div>
    </div>
