@@ -1,24 +1,30 @@
 <?php
 include 'db/db.php';
 
-// SQL query to fetch top 5 drivers based on points
-$top_drivers_sql = "SELECT d.forename, ds.points 
-                    FROM drivers d 
-                    JOIN driver_standings ds ON d.driverId = ds.driverId 
-                    ORDER BY ds.points DESC 
-                    LIMIT 5";
-$top_drivers_result = $conn->query($top_drivers_sql);
+// Query to fetch top 5 drivers based on points
+$pipeline = [
+    ['$lookup' => [
+        'from' => 'driver_standings',
+        'localField' => 'driverId',
+        'foreignField' => 'driverId',
+        'as' => 'standings'
+    ]],
+    ['$unwind' => '$standings'],
+    ['$sort' => ['standings.points' => -1]],
+    ['$limit' => 5]
+];
+
+$result = $db->drivers->aggregate($pipeline);
 
 // Prepare the data for Chart.js
 $driver_names = [];
 $driver_points = [];
-if ($top_drivers_result->num_rows > 0) {
-    while ($driver = $top_drivers_result->fetch_assoc()) {
-        $driver_names[] = $driver['forename'];
-        $driver_points[] = $driver['points'];
-    }
+foreach ($result as $driver) {
+    $driver_names[] = $driver['forename'];
+    $driver_points[] = $driver['standings']['points'];
 }
 ?>
+
 <canvas id="topDriversChart" width="400" height="200"></canvas>
 
 <script>
@@ -33,41 +39,17 @@ if ($top_drivers_result->num_rows > 0) {
                 backgroundColor: 'rgba(75, 192, 192, 0.2)',
                 borderColor: 'rgba(75, 192, 192, 1)',
                 borderWidth: 2,
-                hoverBackgroundColor: 'rgba(75, 192, 192, 0.4)', 
-                hoverBorderColor: 'rgba(255, 255, 255, 1)', 
             }]
         },
         options: {
             scales: {
                 y: {
-                    beginAtZero: true,
-                    ticks: {
-                        color: '#ffffff'
-                    },
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.2)'
-                    }
-                },
-                x: {
-                    ticks: {
-                        color: '#ffffff' 
-                    },
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.2)' 
-                    }
+                    beginAtZero: true
                 }
             },
             plugins: {
-                legend: {
-                    labels: {
-                        color: '#ffffff'
-                    }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.7)', 
-                    titleColor: '#ffffff', 
-                    bodyColor: '#ffffff' 
-                }
+                legend: {},
+                tooltip: {}
             }
         }
     });

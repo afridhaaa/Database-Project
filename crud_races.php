@@ -8,15 +8,13 @@ if (!isset($_SESSION['admin_id'])) {
     exit();
 }
 include 'db/db.php'; // Include the database connection
+use MongoDB\BSON\ObjectId; // Import MongoDB ObjectId
 
 // Pagination settings
 $results_per_page = 10; // Number of results per page
 
-// Find out the number of results stored in the database
-$sql = "SELECT COUNT(raceId) AS total FROM races";
-$result = $conn->query($sql);
-$row = $result->fetch_assoc();
-$total_races = $row['total'];
+// Count total documents in the races collection
+$total_races = $db->races->countDocuments();
 
 // Determine the number of total pages available
 $total_pages = ceil($total_races / $results_per_page);
@@ -28,51 +26,59 @@ $page = isset($_GET['page']) && is_numeric($_GET['page']) ? $_GET['page'] : 1;
 $start_limit = ($page - 1) * $results_per_page;
 
 // Fetch the selected results from the database
-$sql = "SELECT * FROM races LIMIT " . $start_limit . ", " . $results_per_page;
-$result = $conn->query($sql);
+$result = $db->races->find([], [
+    'skip' => $start_limit,
+    'limit' => $results_per_page
+]);
 
 // Create Race Record
 if (isset($_POST['create'])) {
-    $year = $_POST['year'];
-    $round = $_POST['round'];
-    $circuit_id = $_POST['circuit_id'];
-    $name = $_POST['name'];
-    $date = $_POST['date'];
-    $url = $_POST['url'];
+    $newRace = [
+        'year' => (int)$_POST['year'],
+        'round' => (int)$_POST['round'],
+        'circuit_id' => (int)$_POST['circuit_id'],
+        'name' => $_POST['name'],
+        'date' => $_POST['date'],
+        'url' => $_POST['url']
+    ];
 
-    $sql = "INSERT INTO races (year, round, circuit_id, name, date, url) 
-            VALUES ('$year', '$round', '$circuit_id', '$name', '$date', '$url')";
-    $conn->query($sql);
+    $db->races->insertOne($newRace);
 
-    header("Location: crud_races.php");
+    $_SESSION['message'] = "Race added successfully!";
+    header("Location: crud_races.php?page=" . $page);
     exit();
 }
 
 // Edit Race Record
 if (isset($_POST['edit'])) {
     $raceId = $_POST['raceId'];
-    $year = $_POST['year'];
-    $round = $_POST['round'];
-    $circuit_id = $_POST['circuit_id'];
-    $name = $_POST['name'];
-    $date = $_POST['date'];
-    $url = $_POST['url'];
 
-    $sql = "UPDATE races SET year='$year', round='$round', circuit_id='$circuit_id', 
-            name='$name', date='$date', url='$url' WHERE raceId='$raceId'";
-    $conn->query($sql);
+    $updatedRace = [
+        'year' => (int)$_POST['year'],
+        'round' => (int)$_POST['round'],
+        'circuit_id' => (int)$_POST['circuit_id'],
+        'name' => $_POST['name'],
+        'date' => $_POST['date'],
+        'url' => $_POST['url']
+    ];
 
-    header("Location: crud_races.php");
+    $db->races->updateOne(
+        ['_id' => new ObjectId($raceId)],
+        ['$set' => $updatedRace]
+    );
+
+    $_SESSION['message'] = "Race updated successfully!";
+    header("Location: crud_races.php?page=" . $page);
     exit();
 }
 
 // Delete Race Record
 if (isset($_GET['delete'])) {
     $raceId = $_GET['delete'];
-    $sql = "DELETE FROM races WHERE raceId='$raceId'";
-    $conn->query($sql);
+    $db->races->deleteOne(['_id' => new ObjectId($raceId)]);
 
-    header("Location: crud_races.php");
+    $_SESSION['message'] = "Race deleted successfully!";
+    header("Location: crud_races.php?page=" . $page);
     exit();
 }
 ?>
@@ -103,6 +109,28 @@ if (isset($_GET['delete'])) {
                 <i class="fas fa-plus"></i> Create New Race
             </button>
 
+            <!-- Display Popup Notification -->
+            <?php if (isset($_SESSION['message'])): ?>
+                <div id="popupMessage" class="alert alert-success" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 1050;">
+                    <?php echo $_SESSION['message']; ?>
+                </div>
+                <?php unset($_SESSION['message']); ?>
+            <?php endif; ?>
+
+            <script>
+                // Automatically hide the popup after 3 seconds
+                window.onload = function() {
+                    var popup = document.getElementById("popupMessage");
+                    if (popup) {
+                        setTimeout(function() {
+                            popup.style.transition = "opacity 0.5s ease";
+                            popup.style.opacity = "0";
+                            setTimeout(function() { popup.remove(); }, 500); // Remove the element after it fades out
+                        }, 3000);
+                    }
+                };
+            </script>
+
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
@@ -118,75 +146,73 @@ if (isset($_GET['delete'])) {
                 </thead>
                 <tbody>
                     <?php
-                    if ($result->num_rows > 0) {
-                        while ($row = $result->fetch_assoc()) {
-                            echo "<tr>";
-                            echo "<td>{$row['raceId']}</td>";
-                            echo "<td>{$row['year']}</td>";
-                            echo "<td>{$row['round']}</td>";
-                            echo "<td>{$row['circuit_id']}</td>";
-                            echo "<td>{$row['name']}</td>";
-                            echo "<td>{$row['date']}</td>";
-                            echo "<td><a href='{$row['url']}' target='_blank'>Visit</a></td>";
-                            echo "<td>
-                                <button class='btn btn-warning btn-sm' data-bs-toggle='modal' data-bs-target='#editRaceModal{$row['raceId']}'><i class='fas fa-edit'></i></button>
-                                <a href='?delete={$row['raceId']}' class='btn btn-danger btn-sm'><i class='fas fa-trash'></i></a>
-                              </td>";
-                            echo "</tr>";
+                    foreach ($result as $row) {
+                        $id = (string)$row['_id'];
+                        echo "<tr>";
+                        echo "<td>{$id}</td>";
+                        echo "<td>{$row['year']}</td>";
+                        echo "<td>{$row['round']}</td>";
+                        echo "<td>{$row['circuit_id']}</td>";
+                        echo "<td>{$row['name']}</td>";
+                        echo "<td>{$row['date']}</td>";
+                        echo "<td><a href='{$row['url']}' target='_blank'>Visit</a></td>";
+                        echo "<td>
+                            <button class='btn btn-warning btn-sm' data-bs-toggle='modal' data-bs-target='#editRaceModal{$id}'><i class='fas fa-edit'></i></button>
+                            <a href='?delete={$id}&page={$page}' class='btn btn-danger btn-sm'><i class='fas fa-trash'></i></a>
+                          </td>";
+                        echo "</tr>";
 
-                            // Edit Race Modal
-    echo "
-    <div class='modal fade' id='editRaceModal{$row['raceId']}' tabindex='-1' aria-labelledby='editRaceLabel' aria-hidden='true'>
-        <div class='modal-dialog'>
-            <div class='modal-content'>
-                <div class='modal-header'>
-                    <h5 class='modal-title' id='editRaceLabel'>Edit Race</h5>
-                    <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
-                </div>
-                <form action='' method='POST'>
-                    <div class='modal-body'>
-                        <input type='hidden' name='raceId' value='{$row['raceId']}'>
-                        <div class='mb-3'>
-                            <label for='year' class='form-label'>Year</label>
-                            <input type='number' class='form-control' name='year' value='{$row['year']}' required>
-                        </div>
-                        <div class='mb-3'>
-                            <label for='round' class='form-label'>Round</label>
-                            <input type='number' class='form-control' name='round' value='{$row['round']}' required>
-                        </div>
-                        <div class='mb-3'>
-                            <label for='circuit_id' class='form-label'>Circuit ID</label>
-                            <input type='number' class='form-control' name='circuit_id' value='{$row['circuit_id']}' required>
-                        </div>
-                        <div class='mb-3'>
-                            <label for='name' class='form-label'>Name</label>
-                            <input type='text' class='form-control' name='name' value='{$row['name']}' required>
-                        </div>
-                        <div class='mb-3'>
-                            <label for='date' class='form-label'>Date</label>
-                            <input type='date' class='form-control' name='date' value='{$row['date']}' required>
-                        </div>
-                        <div class='mb-3'>
-                            <label for='url' class='form-label'>URL</label>
-                            <input type='text' class='form-control' name='url' value='{$row['url']}' required>
-                        </div>
-                    </div>
-                    <div class='modal-footer'>
-                        <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Close</button>
-                        <button type='submit' class='btn btn-primary' name='edit'>Save Changes</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='8'>No races found</td></tr>";
+                        // Edit Race Modal
+                        echo "
+                        <div class='modal fade' id='editRaceModal{$id}' tabindex='-1' aria-labelledby='editRaceLabel{$id}' aria-hidden='true'>
+                            <div class='modal-dialog'>
+                                <div class='modal-content'>
+                                    <div class='modal-header'>
+                                        <h5 class='modal-title' id='editRaceLabel{$id}'>Edit Race</h5>
+                                        <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+                                    </div>
+                                    <form action='' method='POST'>
+                                        <div class='modal-body'>
+                                            <input type='hidden' name='raceId' value='{$id}'>
+                                            <div class='mb-3'>
+                                                <label for='year' class='form-label'>Year</label>
+                                                <input type='number' class='form-control' name='year' value='{$row['year']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='round' class='form-label'>Round</label>
+                                                <input type='number' class='form-control' name='round' value='{$row['round']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='circuit_id' class='form-label'>Circuit ID</label>
+                                                <input type='number' class='form-control' name='circuit_id' value='{$row['circuit_id']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='name' class='form-label'>Name</label>
+                                                <input type='text' class='form-control' name='name' value='{$row['name']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='date' class='form-label'>Date</label>
+                                                <input type='date' class='form-control' name='date' value='{$row['date']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='url' class='form-label'>URL</label>
+                                                <input type='text' class='form-control' name='url' value='{$row['url']}' required>
+                                            </div>
+                                        </div>
+                                        <div class='modal-footer'>
+                                            <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Close</button>
+                                            <button type='submit' class='btn btn-primary' name='edit'>Save Changes</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>";
                     }
                     ?>
                 </tbody>
             </table>
 
+            <!-- Pagination -->
             <nav>
                 <ul class="pagination justify-content-center">
                     <?php

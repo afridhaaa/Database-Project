@@ -7,16 +7,15 @@ if (!isset($_SESSION['admin_id'])) {
     header("Location: admin_login.php");
     exit();
 }
+
 include 'db/db.php'; // Include the database connection
+use MongoDB\BSON\ObjectId; // Import MongoDB ObjectId
 
 // Pagination settings
 $results_per_page = 10; // Number of results per page
 
-// Find out the number of results stored in the database
-$sql = "SELECT COUNT(driverStandingsId) AS total FROM driver_standings";
-$result = $conn->query($sql);
-$row = $result->fetch_assoc();
-$total_driver_standings = $row['total'];
+// Count total documents in the driver_standings collection
+$total_driver_standings = $db->driver_standings->countDocuments();
 
 // Determine the number of total pages available
 $total_pages = ceil($total_driver_standings / $results_per_page);
@@ -28,49 +27,57 @@ $page = isset($_GET['page']) && is_numeric($_GET['page']) ? $_GET['page'] : 1;
 $start_limit = ($page - 1) * $results_per_page;
 
 // Fetch the selected results from the database
-$sql = "SELECT * FROM driver_standings LIMIT " . $start_limit . ", " . $results_per_page;
-$result = $conn->query($sql);
+$result = $db->driver_standings->find([], [
+    'skip' => $start_limit,
+    'limit' => $results_per_page
+]);
 
 // Create Driver Standing
 if (isset($_POST['create'])) {
-    $raceId = $_POST['raceId'];
-    $driverId = $_POST['driverId'];
-    $points = $_POST['points'];
-    $position = $_POST['position'];
-    $wins = $_POST['wins'];
+    $newStanding = [
+        'raceId' => (int)$_POST['raceId'],
+        'driverId' => (int)$_POST['driverId'],
+        'points' => (float)$_POST['points'],
+        'position' => (int)$_POST['position'],
+        'wins' => (int)$_POST['wins']
+    ];
 
-    $sql = "INSERT INTO driver_standings (raceId, driverId, points, position, wins) 
-            VALUES ('$raceId', '$driverId', '$points', '$position', '$wins')";
-    $conn->query($sql);
+    $db->driver_standings->insertOne($newStanding);
 
-    header("Location: crud_driver_standings.php");
+    $_SESSION['message'] = "Driver standing added successfully!";
+    header("Location: crud_driver_standings.php?page=" . $page);
     exit();
 }
 
 // Edit Driver Standing
 if (isset($_POST['edit'])) {
     $id = $_POST['driverStandingsId'];
-    $raceId = $_POST['raceId'];
-    $driverId = $_POST['driverId'];
-    $points = $_POST['points'];
-    $position = $_POST['position'];
-    $wins = $_POST['wins'];
 
-    $sql = "UPDATE driver_standings SET raceId='$raceId', driverId='$driverId', points='$points', 
-            position='$position', wins='$wins' WHERE driverStandingsId='$id'";
-    $conn->query($sql);
+    $updatedStanding = [
+        'raceId' => (int)$_POST['raceId'],
+        'driverId' => (int)$_POST['driverId'],
+        'points' => (float)$_POST['points'],
+        'position' => (int)$_POST['position'],
+        'wins' => (int)$_POST['wins']
+    ];
 
-    header("Location: crud_driver_standings.php");
+    $db->driver_standings->updateOne(
+        ['_id' => new ObjectId($id)],
+        ['$set' => $updatedStanding]
+    );
+
+    $_SESSION['message'] = "Driver standing updated successfully!";
+    header("Location: crud_driver_standings.php?page=" . $page);
     exit();
 }
 
 // Delete Driver Standing
 if (isset($_GET['delete'])) {
     $id = $_GET['delete'];
-    $sql = "DELETE FROM driver_standings WHERE driverStandingsId='$id'";
-    $conn->query($sql);
+    $db->driver_standings->deleteOne(['_id' => new ObjectId($id)]);
 
-    header("Location: crud_driver_standings.php");
+    $_SESSION['message'] = "Driver standing deleted successfully!";
+    header("Location: crud_driver_standings.php?page=" . $page);
     exit();
 }
 ?>
@@ -101,6 +108,28 @@ if (isset($_GET['delete'])) {
                 <i class="fas fa-plus"></i> Create New Standing
             </button>
 
+            <!-- Display Popup Notification -->
+            <?php if (isset($_SESSION['message'])): ?>
+                <div id="popupMessage" class="alert alert-success" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 1050;">
+                    <?php echo $_SESSION['message']; ?>
+                </div>
+                <?php unset($_SESSION['message']); ?>
+            <?php endif; ?>
+
+            <script>
+                // Automatically hide the popup after 3 seconds
+                window.onload = function() {
+                    var popup = document.getElementById("popupMessage");
+                    if (popup) {
+                        setTimeout(function() {
+                            popup.style.transition = "opacity 0.5s ease";
+                            popup.style.opacity = "0";
+                            setTimeout(function() { popup.remove(); }, 500); // Remove the element after it fades out
+                        }, 3000);
+                    }
+                };
+            </script>
+
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
@@ -115,106 +144,91 @@ if (isset($_GET['delete'])) {
                 </thead>
                 <tbody>
                     <?php
-                    if ($result->num_rows > 0) {
-                        while ($row = $result->fetch_assoc()) {
-                            echo "<tr>";
-                            echo "<td>{$row['driverStandingsId']}</td>";
-                            echo "<td>{$row['raceId']}</td>";
-                            echo "<td>{$row['driverId']}</td>";
-                            echo "<td>{$row['points']}</td>";
-                            echo "<td>{$row['position']}</td>";
-                            echo "<td>{$row['wins']}</td>";
-                            echo "<td>
-                                <button class='btn btn-warning btn-sm' data-bs-toggle='modal' data-bs-target='#editDriverStandingModal{$row['driverStandingsId']}'><i class='fas fa-edit'></i></button>
-                                <a href='?delete={$row['driverStandingsId']}' class='btn btn-danger btn-sm'><i class='fas fa-trash'></i></a>
-                              </td>";
-                            echo "</tr>";
+                    foreach ($result as $row) {
+                        $id = (string)$row['_id'];
+                        echo "<tr>";
+                        echo "<td>{$id}</td>";
+                        echo "<td>{$row['raceId']}</td>";
+                        echo "<td>{$row['driverId']}</td>";
+                        echo "<td>{$row['points']}</td>";
+                        echo "<td>{$row['position']}</td>";
+                        echo "<td>{$row['wins']}</td>";
+                        echo "<td>
+                            <button class='btn btn-warning btn-sm' data-bs-toggle='modal' data-bs-target='#editDriverStandingModal{$id}'><i class='fas fa-edit'></i></button>
+                            <a href='?delete={$id}&page={$page}' class='btn btn-danger btn-sm'><i class='fas fa-trash'></i></a>
+                          </td>";
+                        echo "</tr>";
 
-                            // Edit Modal
-                            echo "
-                            <div class='modal fade' id='editDriverStandingModal{$row['driverStandingsId']}' tabindex='-1' aria-labelledby='editDriverStandingLabel' aria-hidden='true'>
-                                <div class='modal-dialog'>
-                                    <div class='modal-content'>
-                                        <div class='modal-header'>
-                                            <h5 class='modal-title' id='editDriverStandingLabel'>Edit Driver Standing</h5>
-                                            <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
-                                        </div>
-                                        <form action='' method='POST'>
-                                            <div class='modal-body'>
-                                                <input type='hidden' name='driverStandingsId' value='{$row['driverStandingsId']}'>
-                                                <div class='mb-3'>
-                                                    <label for='raceId' class='form-label'>Race ID</label>
-                                                    <input type='number' class='form-control' name='raceId' value='{$row['raceId']}' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='driverId' class='form-label'>Driver ID</label>
-                                                    <input type='number' class='form-control' name='driverId' value='{$row['driverId']}' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='points' class='form-label'>Points</label>
-                                                    <input type='number' step='0.01' class='form-control' name='points' value='{$row['points']}' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='position' class='form-label'>Position</label>
-                                                    <input type='number' class='form-control' name='position' value='{$row['position']}' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='wins' class='form-label'>Wins</label>
-                                                    <input type='number' class='form-control' name='wins' value='{$row['wins']}' required>
-                                                </div>
-                                            </div>
-                                            <div class='modal-footer'>
-                                                <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Close</button>
-                                                <button type='submit' class='btn btn-primary' name='edit'>Save Changes</button>
-                                            </div>
-                                        </form>
+                        // Edit Driver Standing Modal
+                        echo "
+                        <div class='modal fade' id='editDriverStandingModal{$id}' tabindex='-1' aria-labelledby='editDriverStandingLabel' aria-hidden='true'>
+                            <div class='modal-dialog'>
+                                <div class='modal-content'>
+                                    <div class='modal-header'>
+                                        <h5 class='modal-title' id='editDriverStandingLabel'>Edit Driver Standing</h5>
+                                        <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
                                     </div>
+                                    <form action='' method='POST'>
+                                        <div class='modal-body'>
+                                            <input type='hidden' name='driverStandingsId' value='{$id}'>
+                                            <div class='mb-3'>
+                                                <label for='raceId' class='form-label'>Race ID</label>
+                                                <input type='number' class='form-control' name='raceId' value='{$row['raceId']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='driverId' class='form-label'>Driver ID</label>
+                                                <input type='number' class='form-control' name='driverId' value='{$row['driverId']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='points' class='form-label'>Points</label>
+                                                <input type='number' step='0.01' class='form-control' name='points' value='{$row['points']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='position' class='form-label'>Position</label>
+                                                <input type='number' class='form-control' name='position' value='{$row['position']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='wins' class='form-label'>Wins</label>
+                                                <input type='number' class='form-control' name='wins' value='{$row['wins']}' required>
+                                            </div>
+                                        </div>
+                                        <div class='modal-footer'>
+                                            <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Close</button>
+                                            <button type='submit' class='btn btn-primary' name='edit'>Save Changes</button>
+                                        </div>
+                                    </form>
                                 </div>
-                            </div>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='7'>No standings found</td></tr>";
+                            </div>
+                        </div>";
                     }
                     ?>
                 </tbody>
             </table>
 
             <nav>
-    <ul class="pagination justify-content-center">
-        <?php
-        $adjacents = 7; // How many pages to show on each side of the current page
-        $start = max(1, $page - $adjacents); // Calculate the starting page number
-        $end = min($total_pages, $page + $adjacents); // Calculate the ending page number
+                <ul class="pagination justify-content-center">
+                    <?php
+                    $adjacents = 7;
+                    $start = max(1, $page - $adjacents);
+                    $end = min($total_pages, $page + $adjacents);
 
-        // "First" button - only visible if the current page is not the first page
-        if ($page > 1) {
-            echo "<li class='page-item'><a class='page-link' href='crud_driver_standings.php?page=1'>First</a></li>";
-        }
+                    if ($page > 1) {
+                        echo "<li class='page-item'><a class='page-link' href='crud_driver_standings.php?page=1'>First</a></li>";
+                        echo "<li class='page-item'><a class='page-link' href='crud_driver_standings.php?page=" . ($page - 1) . "'>&laquo; Prev</a></li>";
+                    }
 
-        // "Previous" button - only visible if the current page is greater than 1
-        if ($page > 1) {
-            echo "<li class='page-item'><a class='page-link' href='crud_driver_standings.php?page=" . ($page - 1) . "'>&laquo; Prev</a></li>";
-        }
+                    for ($i = $start; $i <= $end; $i++) {
+                        $active = ($i == $page) ? 'active' : '';
+                        echo "<li class='page-item $active'><a class='page-link' href='crud_driver_standings.php?page=$i'>$i</a></li>";
+                    }
 
-        // Page number links - display only the calculated range of pages
-        for ($i = $start; $i <= $end; $i++) {
-            $active = ($i == $page) ? 'active' : '';
-            echo "<li class='page-item $active'><a class='page-link' href='crud_driver_standings.php?page=$i'>$i</a></li>";
-        }
-
-        // "Next" button - only visible if the current page is not the last page
-        if ($page < $total_pages) {
-            echo "<li class='page-item'><a class='page-link' href='crud_driver_standings.php?page=" . ($page + 1) . "'>Next &raquo;</a></li>";
-        }
-
-        // "Last" button - only visible if the current page is not the last page
-        if ($page < $total_pages) {
-            echo "<li class='page-item'><a class='page-link' href='crud_driver_standings.php?page=$total_pages'>Last</a></li>";
-        }
-        ?>
-    </ul>
-</nav>
-
+                    if ($page < $total_pages) {
+                        echo "<li class='page-item'><a class='page-link' href='crud_driver_standings.php?page=" . ($page + 1) . "'>Next &raquo;</a></li>";
+                        echo "<li class='page-item'><a class='page-link' href='crud_driver_standings.php?page=$total_pages'>Last</a></li>";
+                    }
+                    ?>
+                </ul>
+            </nav>
         </div>
     </div>
 </div>

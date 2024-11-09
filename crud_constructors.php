@@ -7,16 +7,15 @@ if (!isset($_SESSION['admin_id'])) {
     header("Location: admin_login.php");
     exit();
 }
+
 include 'db/db.php'; // Include the database connection
+use MongoDB\BSON\ObjectId; // Import MongoDB ObjectId
 
 // Pagination settings
 $results_per_page = 10; // Number of results per page
 
 // Find out the number of results stored in the database
-$sql = "SELECT COUNT(constructor_id) AS total FROM constructors";
-$result = $conn->query($sql);
-$row = $result->fetch_assoc();
-$total_constructors = $row['total'];
+$total_constructors = $db->constructors->countDocuments();
 
 // Determine the number of total pages available
 $total_pages = ceil($total_constructors / $results_per_page);
@@ -28,51 +27,59 @@ $page = isset($_GET['page']) && is_numeric($_GET['page']) ? $_GET['page'] : 1;
 $start_limit = ($page - 1) * $results_per_page;
 
 // Fetch the selected results from the database
-$sql = "SELECT * FROM constructors LIMIT " . $start_limit . ", " . $results_per_page;
-$result = $conn->query($sql);
+$result = $db->constructors->find([], [
+    'skip' => $start_limit,
+    'limit' => $results_per_page
+]);
 
 // Create Constructor
 if (isset($_POST['create'])) {
-    $name = $_POST['constructor_name'];
-    $pole_positions = $_POST['no_of_pole_positions'];
-    $titles = $_POST['no_of_titles'];
-    $points = $_POST['constructor_points'];
-    $nationality = $_POST['nationality'];
-    $url = $_POST['url'];
+    $newConstructor = [
+        'constructor_name' => $_POST['constructor_name'],
+        'no_of_pole_positions' => (int)$_POST['no_of_pole_positions'],
+        'no_of_titles' => (int)$_POST['no_of_titles'],
+        'constructor_points' => (float)$_POST['constructor_points'],
+        'nationality' => $_POST['nationality'],
+        'url' => $_POST['url']
+    ];
 
-    $sql = "INSERT INTO constructors (constructor_name, no_of_pole_positions, no_of_titles, constructor_points, nationality, url) 
-            VALUES ('$name', '$pole_positions', '$titles', '$points', '$nationality', '$url')";
-    $conn->query($sql);
+    $db->constructors->insertOne($newConstructor);
 
-    header("Location: crud_constructors.php");
+    $_SESSION['message'] = "Constructor added successfully!";
+    header("Location: crud_constructors.php?page=" . $page);
     exit();
 }
 
 // Edit Constructor
 if (isset($_POST['edit'])) {
     $id = $_POST['constructor_id'];
-    $name = $_POST['constructor_name'];
-    $pole_positions = $_POST['no_of_pole_positions'];
-    $titles = $_POST['no_of_titles'];
-    $points = $_POST['constructor_points'];
-    $nationality = $_POST['nationality'];
-    $url = $_POST['url'];
 
-    $sql = "UPDATE constructors SET constructor_name='$name', no_of_pole_positions='$pole_positions', no_of_titles='$titles', 
-            constructor_points='$points', nationality='$nationality', url='$url' WHERE constructor_id='$id'";
-    $conn->query($sql);
+    $updatedConstructor = [
+        'constructor_name' => $_POST['constructor_name'],
+        'no_of_pole_positions' => (int)$_POST['no_of_pole_positions'],
+        'no_of_titles' => (int)$_POST['no_of_titles'],
+        'constructor_points' => (float)$_POST['constructor_points'],
+        'nationality' => $_POST['nationality'],
+        'url' => $_POST['url']
+    ];
 
-    header("Location: crud_constructors.php");
+    $db->constructors->updateOne(
+        ['_id' => new ObjectId($id)],
+        ['$set' => $updatedConstructor]
+    );
+
+    $_SESSION['message'] = "Constructor updated successfully!";
+    header("Location: crud_constructors.php?page=" . $page);
     exit();
 }
 
 // Delete Constructor
 if (isset($_GET['delete'])) {
     $id = $_GET['delete'];
-    $sql = "DELETE FROM constructors WHERE constructor_id='$id'";
-    $conn->query($sql);
+    $db->constructors->deleteOne(['_id' => new ObjectId($id)]);
 
-    header("Location: crud_constructors.php");
+    $_SESSION['message'] = "Constructor deleted successfully!";
+    header("Location: crud_constructors.php?page=" . $page);
     exit();
 }
 ?>
@@ -115,72 +122,91 @@ if (isset($_GET['delete'])) {
                         <th>Actions</th>
                     </tr>
                 </thead>
+
+                    <?php if (isset($_SESSION['message'])): ?>
+                        <div id="popupMessage" class="alert alert-success" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 1050;">
+                            <?php echo $_SESSION['message']; ?>
+                        </div>
+                        <?php unset($_SESSION['message']); ?>
+                    <?php endif; ?>
+
+                    <script>
+                        // Automatically hide the popup after 3 seconds
+                        window.onload = function() {
+                            var popup = document.getElementById("popupMessage");
+                            if (popup) {
+                                setTimeout(function() {
+                                    popup.style.transition = "opacity 0.5s ease";
+                                    popup.style.opacity = "0";
+                                    setTimeout(function() { popup.remove(); }, 500); // Remove the element after it fades out
+                                }, 3000);
+                            }
+                        };
+                    </script>
+
                 <tbody>
                     <?php
-                    if ($result->num_rows > 0) {
-                        while ($row = $result->fetch_assoc()) {
-                            echo "<tr>";
-                            echo "<td>{$row['constructor_id']}</td>";
-                            echo "<td>{$row['constructor_name']}</td>";
-                            echo "<td>{$row['no_of_pole_positions']}</td>";
-                            echo "<td>{$row['no_of_titles']}</td>";
-                            echo "<td>{$row['constructor_points']}</td>";
-                            echo "<td>{$row['nationality']}</td>";
-                            echo "<td><a href='{$row['url']}' target='_blank'>Visit</a></td>";
-                            echo "<td>
-                                <button class='btn btn-warning btn-sm' data-bs-toggle='modal' data-bs-target='#editConstructorModal{$row['constructor_id']}'><i class='fas fa-edit'></i></button>
-                                <a href='?delete={$row['constructor_id']}' class='btn btn-danger btn-sm'><i class='fas fa-trash'></i></a>
-                              </td>";
-                            echo "</tr>";
-
-                            // Edit Constructor Modal
-                            echo "
-                            <div class='modal fade' id='editConstructorModal" . $row['constructor_id'] . "' tabindex='-1' aria-labelledby='editConstructorLabel' aria-hidden='true'>
-                                <div class='modal-dialog'>
-                                    <div class='modal-content'>
-                                        <div class='modal-header'>
-                                            <h5 class='modal-title' id='editConstructorLabel'>Edit Constructor</h5>
-                                            <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
-                                        </div>
-                                        <form action='' method='POST'>
-                                            <div class='modal-body'>
-                                                <input type='hidden' name='constructor_id' value='" . $row['constructor_id'] . "'>
-                                                <div class='mb-3'>
-                                                    <label for='constructor_name' class='form-label'>Constructor Name</label>
-                                                    <input type='text' class='form-control' name='constructor_name' value='" . $row['constructor_name'] . "' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='no_of_pole_positions' class='form-label'>Pole Positions</label>
-                                                    <input type='number' class='form-control' name='no_of_pole_positions' value='" . $row['no_of_pole_positions'] . "' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='no_of_titles' class='form-label'>Titles</label>
-                                                    <input type='number' class='form-control' name='no_of_titles' value='" . $row['no_of_titles'] . "' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='constructor_points' class='form-label'>Points</label>
-                                                    <input type='number' class='form-control' name='constructor_points' value='" . $row['constructor_points'] . "' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='nationality' class='form-label'>Nationality</label>
-                                                    <input type='text' class='form-control' name='nationality' value='" . $row['nationality'] . "' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='url' class='form-label'>URL</label>
-                                                    <input type='text' class='form-control' name='url' value='" . $row['url'] . "' required>
-                                                </div>
-                                            </div>
-                                            <div class='modal-footer'>
-                                                <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Close</button>
-                                                <button type='submit' class='btn btn-primary' name='edit'>Save Changes</button>
-                                            </div>
-                                        </form>
+                    foreach ($result as $row) {
+                        $id = (string)$row['_id'];
+                        echo "<tr>";
+                        echo "<td>{$id}</td>";
+                        echo "<td>{$row['constructor_name']}</td>";
+                        echo "<td>{$row['no_of_pole_positions']}</td>";
+                        echo "<td>{$row['no_of_titles']}</td>";
+                        echo "<td>{$row['constructor_points']}</td>";
+                        echo "<td>{$row['nationality']}</td>";
+                        echo "<td><a href='{$row['url']}' target='_blank'>Visit</a></td>";
+                        echo "<td>
+                            <button class='btn btn-warning btn-sm' data-bs-toggle='modal' data-bs-target='#editConstructorModal{$id}'><i class='fas fa-edit'></i></button>
+                            <a href='?delete={$id}' class='btn btn-danger btn-sm'><i class='fas fa-trash'></i></a>
+                          </td>";
+                        echo "</tr>";
+                        
+                        // Edit Constructor Modal
+                        echo "
+                        <div class='modal fade' id='editConstructorModal{$id}' tabindex='-1' aria-labelledby='editConstructorLabel{$id}' aria-hidden='true'>
+                            <div class='modal-dialog'>
+                                <div class='modal-content'>
+                                    <div class='modal-header'>
+                                        <h5 class='modal-title' id='editConstructorLabel{$id}'>Edit Constructor</h5>
+                                        <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
                                     </div>
+                                    <form action='' method='POST'>
+                                        <div class='modal-body'>
+                                            <input type='hidden' name='constructor_id' value='{$id}'>
+                                            <div class='mb-3'>
+                                                <label for='constructor_name' class='form-label'>Constructor Name</label>
+                                                <input type='text' class='form-control' name='constructor_name' value='{$row['constructor_name']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='no_of_pole_positions' class='form-label'>Pole Positions</label>
+                                                <input type='number' class='form-control' name='no_of_pole_positions' value='{$row['no_of_pole_positions']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='no_of_titles' class='form-label'>Titles</label>
+                                                <input type='number' class='form-control' name='no_of_titles' value='{$row['no_of_titles']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='constructor_points' class='form-label'>Points</label>
+                                                <input type='number' class='form-control' name='constructor_points' value='{$row['constructor_points']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='nationality' class='form-label'>Nationality</label>
+                                                <input type='text' class='form-control' name='nationality' value='{$row['nationality']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='url' class='form-label'>URL</label>
+                                                <input type='text' class='form-control' name='url' value='{$row['url']}' required>
+                                            </div>
+                                        </div>
+                                        <div class='modal-footer'>
+                                            <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Close</button>
+                                            <button type='submit' class='btn btn-primary' name='edit'>Save Changes</button>
+                                        </div>
+                                    </form>
                                 </div>
-                            </div>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='8'>No constructors found</td></tr>";
+                            </div>
+                        </div>";
                     }
                     ?>
                 </tbody>
@@ -188,11 +214,27 @@ if (isset($_GET['delete'])) {
 
             <nav>
                 <ul class="pagination justify-content-center">
-                    <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                        <li class="page-item <?php if ($i == $page) echo 'active'; ?>">
-                            <a class="page-link" href="crud_constructors.php?page=<?php echo $i; ?>"><?php echo $i; ?></a>
-                        </li>
-                    <?php endfor; ?>
+                    <?php
+                    $adjacents = 7;
+                    $start = max(1, $page - $adjacents);
+                    $end = min($total_pages, $page + $adjacents);
+
+                    if ($total_pages > $adjacents && $page > 1) {
+                        echo "<li class='page-item'><a class='page-link' href='crud_constructors.php?page=1'>First</a></li>";
+                        echo "<li class='page-item'><a class='page-link' href='crud_constructors.php?page=" . ($page - 1) . "'>&laquo; Prev</a></li>";
+                    }
+
+                    // Show page number links
+                    for ($i = $start; $i <= $end; $i++) {
+                        $active = ($i == $page) ? 'active' : '';
+                        echo "<li class='page-item $active'><a class='page-link' href='crud_constructors.php?page=$i'>$i</a></li>";
+                    }
+
+                    if ($total_pages > $adjacents && $page < $total_pages) {
+                        echo "<li class='page-item'><a class='page-link' href='crud_constructors.php?page=" . ($page + 1) . "'>Next &raquo;</a></li>";
+                        echo "<li class='page-item'><a class='page-link' href='crud_constructors.php?page=$total_pages'>Last</a></li>";
+                    }
+                    ?>
                 </ul>
             </nav>
         </div>
@@ -204,7 +246,7 @@ if (isset($_GET['delete'])) {
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="createConstructorLabel">Create New Constructor</h5>
+                <h5 class='modal-title' id='createConstructorLabel'>Create New Constructor</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form action="" method="POST">

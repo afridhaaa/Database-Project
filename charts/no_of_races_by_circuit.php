@@ -3,14 +3,17 @@
 include 'db/db.php';
 
 // Query for Number of Races by Circuit
-$sql = "SELECT circuit_id, COUNT(raceId) AS num_of_races FROM races GROUP BY circuit_id";
-$result = $conn->query($sql);
+$pipeline = [
+    ['$group' => ['_id' => '$circuit_id', 'num_of_races' => ['$sum' => 1]]]
+];
+
+$result = $db->races->aggregate($pipeline);
 
 // Prepare data for Chart.js
 $circuit_ids = [];
 $race_counts = [];
-while ($row = $result->fetch_assoc()) {
-    $circuit_ids[] = 'Circuit ' . $row['circuit_id'];
+foreach ($result as $row) {
+    $circuit_ids[] = 'Circuit ' . $row['_id'];
     $race_counts[] = $row['num_of_races'];
 }
 ?>
@@ -32,7 +35,7 @@ while ($row = $result->fetch_assoc()) {
             }]
         },
         options: {
-            indexAxis: 'y',  // This makes the bars horizontal
+            indexAxis: 'y',
             scales: {
                 x: {
                     beginAtZero: true,

@@ -2,22 +2,27 @@
 // Connect to the database
 include 'db/db.php';
 
-// Query for Fastest Lap Speeds, joining drivers to get the driver name
-$sql = "
-    SELECT results.raceId, drivers.forename, results.fastestLapSpeed 
-    FROM results
-    INNER JOIN drivers ON results.driverId = drivers.driverId
-    ORDER BY results.fastestLapSpeed DESC
-    LIMIT 10";
-    
-$result = $conn->query($sql);
+// Query for Fastest Lap Speeds, joining results and drivers collections
+$pipeline = [
+    ['$lookup' => [
+        'from' => 'drivers',
+        'localField' => 'driverId',
+        'foreignField' => 'driverId',
+        'as' => 'driver_details'
+    ]],
+    ['$unwind' => '$driver_details'],
+    ['$sort' => ['fastestLapSpeed' => -1]],
+    ['$limit' => 10]
+];
+
+$result = $db->results->aggregate($pipeline);
 
 // Prepare data for Chart.js
 $lap_speeds = [];
 $races = [];
-while ($row = $result->fetch_assoc()) {
+foreach ($result as $row) {
     $lap_speeds[] = $row['fastestLapSpeed'];
-    $races[] = 'Race ' . $row['raceId'] . ', ' . $row['forename'];
+    $races[] = 'Race ' . $row['raceId'] . ', ' . $row['driver_details']['forename'];
 }
 ?>
 

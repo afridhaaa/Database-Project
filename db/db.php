@@ -13,7 +13,7 @@ try {
     // Select the database
     $db = $client->FormulaVault;
 
-    echo "Connected to MongoDB Atlas successfully!";
+    //echo "Connected to MongoDB Atlas successfully!";
 } catch (Exception $e) {
     die("Connection failed: " . $e->getMessage());
 }

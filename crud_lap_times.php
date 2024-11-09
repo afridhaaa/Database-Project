@@ -8,15 +8,13 @@ if (!isset($_SESSION['admin_id'])) {
     exit();
 }
 include 'db/db.php'; // Include the database connection
+use MongoDB\BSON\ObjectId; // Import MongoDB ObjectId
 
 // Pagination settings
 $results_per_page = 10; // Number of results per page
 
-// Find out the number of results stored in the database
-$sql = "SELECT COUNT(id) AS total FROM lap_times";
-$result = $conn->query($sql);
-$row = $result->fetch_assoc();
-$total_lap_times = $row['total'];
+// Count total documents in the lap_times collection
+$total_lap_times = $db->lap_times->countDocuments();
 
 // Determine the number of total pages available
 $total_pages = ceil($total_lap_times / $results_per_page);
@@ -28,51 +26,59 @@ $page = isset($_GET['page']) && is_numeric($_GET['page']) ? $_GET['page'] : 1;
 $start_limit = ($page - 1) * $results_per_page;
 
 // Fetch the selected results from the database
-$sql = "SELECT * FROM lap_times LIMIT " . $start_limit . ", " . $results_per_page;
-$result = $conn->query($sql);
+$result = $db->lap_times->find([], [
+    'skip' => $start_limit,
+    'limit' => $results_per_page
+]);
 
 // Create Lap Time Record
 if (isset($_POST['create'])) {
-    $raceId = $_POST['raceId'];
-    $driverId = $_POST['driverId'];
-    $lap = $_POST['lap'];
-    $position = $_POST['position'];
-    $time = $_POST['time'];
-    $milliseconds = $_POST['milliseconds'];
+    $newLapTime = [
+        'raceId' => (int)$_POST['raceId'],
+        'driverId' => (int)$_POST['driverId'],
+        'lap' => (int)$_POST['lap'],
+        'position' => (int)$_POST['position'],
+        'time' => $_POST['time'],
+        'milliseconds' => (int)$_POST['milliseconds']
+    ];
 
-    $sql = "INSERT INTO lap_times (raceId, driverId, lap, position, time, milliseconds) 
-            VALUES ('$raceId', '$driverId', '$lap', '$position', '$time', '$milliseconds')";
-    $conn->query($sql);
+    $db->lap_times->insertOne($newLapTime);
 
-    header("Location: crud_lap_times.php");
+    $_SESSION['message'] = "Lap Time record added successfully!";
+    header("Location: crud_lap_times.php?page=" . $page);
     exit();
 }
 
 // Edit Lap Time Record
 if (isset($_POST['edit'])) {
     $id = $_POST['id'];
-    $raceId = $_POST['raceId'];
-    $driverId = $_POST['driverId'];
-    $lap = $_POST['lap'];
-    $position = $_POST['position'];
-    $time = $_POST['time'];
-    $milliseconds = $_POST['milliseconds'];
 
-    $sql = "UPDATE lap_times SET raceId='$raceId', driverId='$driverId', lap='$lap', position='$position', 
-            time='$time', milliseconds='$milliseconds' WHERE id='$id'";
-    $conn->query($sql);
+    $updatedLapTime = [
+        'raceId' => (int)$_POST['raceId'],
+        'driverId' => (int)$_POST['driverId'],
+        'lap' => (int)$_POST['lap'],
+        'position' => (int)$_POST['position'],
+        'time' => $_POST['time'],
+        'milliseconds' => (int)$_POST['milliseconds']
+    ];
 
-    header("Location: crud_lap_times.php");
+    $db->lap_times->updateOne(
+        ['_id' => new ObjectId($id)],
+        ['$set' => $updatedLapTime]
+    );
+
+    $_SESSION['message'] = "Lap Time record updated successfully!";
+    header("Location: crud_lap_times.php?page=" . $page);
     exit();
 }
 
 // Delete Lap Time Record
 if (isset($_GET['delete'])) {
     $id = $_GET['delete'];
-    $sql = "DELETE FROM lap_times WHERE id='$id'";
-    $conn->query($sql);
+    $db->lap_times->deleteOne(['_id' => new ObjectId($id)]);
 
-    header("Location: crud_lap_times.php");
+    $_SESSION['message'] = "Lap Time record deleted successfully!";
+    header("Location: crud_lap_times.php?page=" . $page);
     exit();
 }
 ?>
@@ -103,6 +109,28 @@ if (isset($_GET['delete'])) {
                 <i class="fas fa-plus"></i> Create New Lap Time
             </button>
 
+            <!-- Display Popup Notification -->
+            <?php if (isset($_SESSION['message'])): ?>
+                <div id="popupMessage" class="alert alert-success" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 1050;">
+                    <?php echo $_SESSION['message']; ?>
+                </div>
+                <?php unset($_SESSION['message']); ?>
+            <?php endif; ?>
+
+            <script>
+                // Automatically hide the popup after 3 seconds
+                window.onload = function() {
+                    var popup = document.getElementById("popupMessage");
+                    if (popup) {
+                        setTimeout(function() {
+                            popup.style.transition = "opacity 0.5s ease";
+                            popup.style.opacity = "0";
+                            setTimeout(function() { popup.remove(); }, 500); // Remove the element after it fades out
+                        }, 3000);
+                    }
+                };
+            </script>
+
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
@@ -118,70 +146,67 @@ if (isset($_GET['delete'])) {
                 </thead>
                 <tbody>
                     <?php
-                    if ($result->num_rows > 0) {
-                        while ($row = $result->fetch_assoc()) {
-                            echo "<tr>";
-                            echo "<td>{$row['id']}</td>";
-                            echo "<td>{$row['raceId']}</td>";
-                            echo "<td>{$row['driverId']}</td>";
-                            echo "<td>{$row['lap']}</td>";
-                            echo "<td>{$row['position']}</td>";
-                            echo "<td>{$row['time']}</td>";
-                            echo "<td>{$row['milliseconds']}</td>";
-                            echo "<td>
-                                <button class='btn btn-warning btn-sm' data-bs-toggle='modal' data-bs-target='#editLapTimeModal{$row['id']}'><i class='fas fa-edit'></i></button>
-                                <a href='?delete={$row['id']}' class='btn btn-danger btn-sm'><i class='fas fa-trash'></i></a>
-                              </td>";
-                            echo "</tr>";
+                    foreach ($result as $row) {
+                        $id = (string)$row['_id'];
+                        echo "<tr>";
+                        echo "<td>{$id}</td>";
+                        echo "<td>{$row['raceId']}</td>";
+                        echo "<td>{$row['driverId']}</td>";
+                        echo "<td>{$row['lap']}</td>";
+                        echo "<td>{$row['position']}</td>";
+                        echo "<td>{$row['time']}</td>";
+                        echo "<td>{$row['milliseconds']}</td>";
+                        echo "<td>
+                            <button class='btn btn-warning btn-sm' data-bs-toggle='modal' data-bs-target='#editLapTimeModal{$id}'><i class='fas fa-edit'></i></button>
+                            <a href='?delete={$id}&page={$page}' class='btn btn-danger btn-sm'><i class='fas fa-trash'></i></a>
+                          </td>";
+                        echo "</tr>";
 
-                            // Edit Modal
-                            echo "
-                            <div class='modal fade' id='editLapTimeModal{$row['id']}' tabindex='-1' aria-labelledby='editLapTimeLabel' aria-hidden='true'>
-                                <div class='modal-dialog'>
-                                    <div class='modal-content'>
-                                        <div class='modal-header'>
-                                            <h5 class='modal-title' id='editLapTimeLabel'>Edit Lap Time</h5>
-                                            <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
-                                        </div>
-                                        <form action='' method='POST'>
-                                            <div class='modal-body'>
-                                                <input type='hidden' name='id' value='{$row['id']}'>
-                                                <div class='mb-3'>
-                                                    <label for='raceId' class='form-label'>Race ID</label>
-                                                    <input type='number' class='form-control' name='raceId' value='{$row['raceId']}' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='driverId' class='form-label'>Driver ID</label>
-                                                    <input type='number' class='form-control' name='driverId' value='{$row['driverId']}' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='lap' class='form-label'>Lap</label>
-                                                    <input type='number' class='form-control' name='lap' value='{$row['lap']}' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='position' class='form-label'>Position</label>
-                                                    <input type='number' class='form-control' name='position' value='{$row['position']}' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='time' class='form-label'>Time</label>
-                                                    <input type='text' class='form-control' name='time' value='{$row['time']}' required>
-                                                </div>
-                                                <div class='mb-3'>
-                                                    <label for='milliseconds' class='form-label'>Milliseconds</label>
-                                                    <input type='number' class='form-control' name='milliseconds' value='{$row['milliseconds']}' required>
-                                                </div>
-                                            </div>
-                                            <div class='modal-footer'>
-                                                <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Close</button>
-                                                <button type='submit' class='btn btn-primary' name='edit'>Save Changes</button>
-                                            </div>
-                                        </form>
+                        // Edit Lap Time Modal
+                        echo "
+                        <div class='modal fade' id='editLapTimeModal{$id}' tabindex='-1' aria-labelledby='editLapTimeLabel{$id}' aria-hidden='true'>
+                            <div class='modal-dialog'>
+                                <div class='modal-content'>
+                                    <div class='modal-header'>
+                                        <h5 class='modal-title' id='editLapTimeLabel{$id}'>Edit Lap Time</h5>
+                                        <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
                                     </div>
+                                    <form action='' method='POST'>
+                                        <div class='modal-body'>
+                                            <input type='hidden' name='id' value='{$id}'>
+                                            <div class='mb-3'>
+                                                <label for='raceId' class='form-label'>Race ID</label>
+                                                <input type='number' class='form-control' name='raceId' value='{$row['raceId']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='driverId' class='form-label'>Driver ID</label>
+                                                <input type='number' class='form-control' name='driverId' value='{$row['driverId']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='lap' class='form-label'>Lap</label>
+                                                <input type='number' class='form-control' name='lap' value='{$row['lap']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='position' class='form-label'>Position</label>
+                                                <input type='number' class='form-control' name='position' value='{$row['position']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='time' class='form-label'>Time</label>
+                                                <input type='text' class='form-control' name='time' value='{$row['time']}' required>
+                                            </div>
+                                            <div class='mb-3'>
+                                                <label for='milliseconds' class='form-label'>Milliseconds</label>
+                                                <input type='number' class='form-control' name='milliseconds' value='{$row['milliseconds']}' required>
+                                            </div>
+                                        </div>
+                                        <div class='modal-footer'>
+                                            <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Close</button>
+                                            <button type='submit' class='btn btn-primary' name='edit'>Save Changes</button>
+                                        </div>
+                                    </form>
                                 </div>
-                            </div>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='8'>No lap times found</td></tr>";
+                            </div>
+                        </div>";
                     }
                     ?>
                 </tbody>

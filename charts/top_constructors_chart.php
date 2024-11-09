@@ -2,21 +2,18 @@
 // Include your DB connection
 include 'db/db.php';
 
-// SQL query to fetch top 5 constructors based on points
-$top_constructors_sql = "SELECT constructor_name, constructor_points 
-                         FROM constructors 
-                         ORDER BY constructor_points DESC 
-                         LIMIT 5";
-$top_constructors_result = $conn->query($top_constructors_sql);
+// Fetch top 5 constructors based on points
+$result = $db->constructors->find(
+    [],
+    ['sort' => ['constructor_points' => -1], 'limit' => 5]
+);
 
 // Prepare the data for Chart.js
 $constructor_names = [];
 $constructor_points = [];
-if ($top_constructors_result->num_rows > 0) {
-    while ($constructor = $top_constructors_result->fetch_assoc()) {
-        $constructor_names[] = $constructor['constructor_name'];
-        $constructor_points[] = $constructor['constructor_points'];
-    }
+foreach ($result as $constructor) {
+    $constructor_names[] = $constructor['constructor_name'];
+    $constructor_points[] = $constructor['constructor_points'];
 }
 ?>
 
@@ -43,28 +40,13 @@ if ($top_constructors_result->num_rows > 0) {
         options: {
             scales: {
                 y: {
-                    beginAtZero: true,
-                    ticks: {
-                        color: '#ffffff' 
-                    },
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.2)' 
-                    }
+                    beginAtZero: true
                 },
-                x: {
-                    ticks: {
-                        color: '#ffffff' 
-                    },
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.2)' 
-                    }
-                }
+                x: {}
             },
             plugins: {
                 legend: {
-                    labels: {
-                        color: '#ffffff'
-                    }
+                    labels: {}
                 }
             }
         }

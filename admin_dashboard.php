@@ -4,6 +4,7 @@ if (!isset($_SESSION['admin_id'])) {
     header("Location: admin_login.php");
     exit();
 }
+
 include 'db/db.php'; // Include the database connection
 ?>
 
@@ -37,9 +38,8 @@ include 'db/db.php'; // Include the database connection
                         <div class="card-header">Total Drivers</div>
                         <div class="card-body">
                             <?php
-                            $result = $conn->query("SELECT COUNT(*) AS total_drivers FROM drivers");
-                            $data = $result->fetch_assoc();
-                            echo "<h3>{$data['total_drivers']}</h3>";
+                            $totalDrivers = $db->drivers->countDocuments();
+                            echo "<h3>{$totalDrivers}</h3>";
                             ?>
                         </div>
                     </div>
@@ -50,9 +50,8 @@ include 'db/db.php'; // Include the database connection
                         <div class="card-header">Total Races</div>
                         <div class="card-body">
                             <?php
-                            $result = $conn->query("SELECT COUNT(*) AS total_races FROM races");
-                            $data = $result->fetch_assoc();
-                            echo "<h3>{$data['total_races']}</h3>";
+                            $totalRaces = $db->races->countDocuments();
+                            echo "<h3>{$totalRaces}</h3>";
                             ?>
                         </div>
                     </div>
@@ -63,9 +62,8 @@ include 'db/db.php'; // Include the database connection
                         <div class="card-header">Total Constructors</div>
                         <div class="card-body">
                             <?php
-                            $result = $conn->query("SELECT COUNT(*) AS total_constructors FROM constructors");
-                            $data = $result->fetch_assoc();
-                            echo "<h3>{$data['total_constructors']}</h3>";
+                            $totalConstructors = $db->constructors->countDocuments();
+                            echo "<h3>{$totalConstructors}</h3>";
                             ?>
                         </div>
                     </div>
@@ -76,9 +74,8 @@ include 'db/db.php'; // Include the database connection
                         <div class="card-header">Total Circuits</div>
                         <div class="card-body">
                             <?php
-                            $result = $conn->query("SELECT COUNT(*) AS total_circuits FROM circuits");
-                            $data = $result->fetch_assoc();
-                            echo "<h3>{$data['total_circuits']}</h3>";
+                            $totalCircuits = $db->circuits->countDocuments();
+                            echo "<h3>{$totalCircuits}</h3>";
                             ?>
                         </div>
                     </div>

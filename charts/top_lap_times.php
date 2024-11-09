@@ -2,23 +2,27 @@
 // Connect to the database
 include 'db/db.php';
 
-// Query to get top lap times (in milliseconds) along with driver names
-$sql = "
-    SELECT lap_times.raceId, drivers.forename, lap_times.milliseconds
-    FROM lap_times
-    INNER JOIN drivers ON lap_times.driverId = drivers.driverId
-    ORDER BY lap_times.milliseconds ASC
-    LIMIT 10";
+// Query for top lap times (ascending order) with driver names
+$pipeline = [
+    ['$lookup' => [
+        'from' => 'drivers',
+        'localField' => 'driverId',
+        'foreignField' => 'driverId',
+        'as' => 'driver_details'
+    ]],
+    ['$unwind' => '$driver_details'],
+    ['$sort' => ['milliseconds' => 1]],
+    ['$limit' => 10]
+];
 
-$result = $conn->query($sql);
+$result = $db->lap_times->aggregate($pipeline);
 
 // Prepare data for Chart.js
 $lap_times = [];
 $drivers = [];
-
-while ($row = $result->fetch_assoc()) {
-    $lap_times[] = $row['milliseconds'] / 1000; // Convert milliseconds to seconds
-    $drivers[] = 'Race ' . $row['raceId'] . ', ' . $row['forename']; // Display race ID and driver for labels
+foreach ($result as $row) {
+    $lap_times[] = $row['milliseconds'] / 1000;
+    $drivers[] = 'Race ' . $row['raceId'] . ', ' . $row['driver_details']['forename'];
 }
 ?>
 
@@ -27,13 +31,12 @@ while ($row = $result->fetch_assoc()) {
 <script>
     var ctx = document.getElementById('topLapTimesChart').getContext('2d');
     var chart = new Chart(ctx, {
-        type: 'line',  
+        type: 'line',
         data: {
-            labels: <?php echo json_encode($drivers); ?>, // Display driver names in the labels
+            labels: <?php echo json_encode($drivers); ?>,
             datasets: [{
                 label: 'Top Lap Times (in seconds)',
                 data: <?php echo json_encode($lap_times); ?>,
-                fill: false,
                 backgroundColor: 'rgba(255, 99, 132, 0.2)',
                 borderColor: 'rgba(255, 99, 132, 1)',
                 borderWidth: 1
@@ -42,24 +45,12 @@ while ($row = $result->fetch_assoc()) {
         options: {
             scales: {
                 y: {
-                    beginAtZero: false, 
-                    title: {
-                        display: true,
-                        text: 'Time (in seconds)' // Add a label to y-axis
-                    }
+                    beginAtZero: false
                 },
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Race and Driver'
-                    }
-                }
+                x: {}
             },
             plugins: {
-                legend: {
-                    display: true,
-                    position: 'top'
-                }
+                legend: {}
             }
         }
     });

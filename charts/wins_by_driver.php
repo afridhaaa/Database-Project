@@ -3,13 +3,15 @@
 include 'db/db.php';
 
 // Query for Wins by Driver
-$sql = "SELECT forename, no_of_race_wins FROM drivers ORDER BY no_of_race_wins DESC";
-$result = $conn->query($sql);
+$result = $db->drivers->find(
+    [],
+    ['sort' => ['no_of_race_wins' => -1]]
+);
 
 // Prepare data for Chart.js
 $drivers = [];
 $wins = [];
-while ($row = $result->fetch_assoc()) {
+foreach ($result as $row) {
     $drivers[] = $row['forename'];
     $wins[] = $row['no_of_race_wins'];
 }
