@@ -2,7 +2,10 @@
 include 'db/db.php';
 include 'process.php';
 
-// Define how many results you want per page
+// Define the MongoDB collection
+$collection = $client->FormulaVault->drivers;
+
+// Set the number of results per page
 $results_per_page = 10;
 
 // Determine which page number visitor is currently on
@@ -12,31 +15,60 @@ if (isset($_GET['page'])) {
     $current_page = 1;
 }
 
-// Determine the SQL LIMIT starting number for the results on the displaying page
+// Calculate the skip limit for pagination
 $start_from = ($current_page - 1) * $results_per_page;
 
 // Handle sorting
-$sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'ASC';
+$sort_order = isset($_GET['sort_order']) && strtolower($_GET['sort_order']) === 'desc' ? -1 : 1;
 
 // Handle search
 $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
 
-// SQL query to fetch drivers data with search, sort, and pagination
-$sql = "SELECT forename, nationality, url 
-        FROM drivers 
-        WHERE forename LIKE '%$search_keyword%' OR nationality LIKE '%$search_keyword%' 
-        ORDER BY forename $sort_order 
-        LIMIT $start_from, $results_per_page";
-$result = $conn->query($sql);
+$pipeline = [
+    // Match documents based on search criteria
+    [
+        '$match' => [
+            '$or' => [
+                ['forename' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['nationality' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+            ]
+        ]
+    ],
+    // Add a lowercase version of forename for case-insensitive sorting
+    [
+        '$addFields' => [
+            'forename_lower' => ['$toLower' => '$forename']
+        ]
+    ],
+    // Sort by the lowercase forename field
+    [
+        '$sort' => [
+            'forename_lower' => $sort_order
+        ]
+    ],
+    // Skip documents for pagination
+    [
+        '$skip' => $start_from
+    ],
+    // Limit the number of documents per page
+    [
+        '$limit' => $results_per_page
+    ]
+];
 
-// Find out the total number of pages
-$total_sql = "SELECT COUNT(*) AS total 
-              FROM drivers 
-              WHERE forename LIKE '%$search_keyword%' OR nationality LIKE '%$search_keyword%'";
-$total_result = $conn->query($total_sql);
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row["total"] / $results_per_page);
 
+// Execute aggregation query
+$result = $collection->aggregate($pipeline);
+
+// Count total documents for pagination
+$total_count = $collection->countDocuments([
+    '$or' => [
+        ['forename' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+        ['nationality' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+    ]
+]);
+
+$total_pages = ceil($total_count / $results_per_page);
 ?>
 <!doctype html>
 <html lang="en">
@@ -53,9 +85,9 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-2">
-                <div class="heading">
+                <!-- <div class="heading">
                   <a href="index.php">  <h4>Formula1</h4></a>
-                </div>
+                </div> -->
             </div>
         </div>
     </div>
@@ -83,8 +115,8 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
                                 <div class="custom-form-group">
                                     <label for="sort_order" class="custom-label">Sort by Name:</label>
                                     <select name="sort_order" id="sort_order" class="custom-form-control" onchange="this.form.submit()">
-                                        <option value="ASC" <?php if ($sort_order == 'ASC') echo 'selected'; ?>>A to Z</option>
-                                        <option value="DESC" <?php if ($sort_order == 'DESC') echo 'selected'; ?>>Z to A</option>
+                                        <option value="ASC" <?php if ($sort_order == 1) echo 'selected'; ?>>A to Z</option>
+                                        <option value="DESC" <?php if ($sort_order == -1) echo 'selected'; ?>>Z to A</option>
                                     </select>
                                 </div>
 
@@ -115,21 +147,17 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
                                   <tr>
                                     <th scope="col">Driver Name</th>
                                     <th scope="col">Nationality</th>
-                                    <th scope="col">Url</th>
+                                    <th scope="col">URL</th>
                                   </tr>
                                 </thead>
                                 <tbody>
                                 <?php
-                                    if ($result->num_rows > 0) {
-                                        while($row = $result->fetch_assoc()) {
-                                            echo "<tr>";
-                                            echo "<td>" . $row['forename'] . "</td>";
-                                            echo "<td>" . $row['nationality'] . "</td>";
-                                            echo "<td><a href='" . $row['url'] . "' target='_blank'>View More</a></td>";
-                                            echo "</tr>";
-                                        }
-                                    } else {
-                                        echo "<tr><td colspan='3'>No data available</td></tr>";
+                                    foreach ($result as $row) {
+                                        echo "<tr>";
+                                        echo "<td>" . htmlspecialchars($row['forename']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($row['nationality']) . "</td>";
+                                        echo "<td><a href='" . htmlspecialchars($row['url']) . "' target='_blank'>View More</a></td>";
+                                        echo "</tr>";
                                     }
                                 ?>
                                 </tbody>

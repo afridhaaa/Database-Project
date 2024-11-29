@@ -1,42 +1,83 @@
 <?php
-
 include 'db/db.php';  // Include your database connection
 
 // Set the number of results per page
 $results_per_page = 10;
 
 // Determine the total number of records for pagination
-$sql_total = "SELECT COUNT(*) AS total 
-              FROM results rs 
-              INNER JOIN races r ON rs.raceId = r.raceId 
-              INNER JOIN circuits c ON r.circuit_id = c.circuit_id 
-              INNER JOIN drivers d ON rs.driverId = d.driverId 
-              WHERE r.year = 2015 AND rs.position = 1";
-$total_result = $conn->query($sql_total);
-$total_row = $total_result->fetch_assoc();
+$total_result = $db->results->aggregate([
+    ['$lookup' => [
+        'from' => 'races',
+        'localField' => 'raceId',
+        'foreignField' => 'raceId',
+        'as' => 'race_details'
+    ]],
+    ['$lookup' => [
+        'from' => 'circuits',
+        'localField' => 'race_details.circuit_id',
+        'foreignField' => 'circuit_id',
+        'as' => 'circuit_details'
+    ]],
+    ['$lookup' => [
+        'from' => 'drivers',
+        'localField' => 'driverId',
+        'foreignField' => 'driverId',
+        'as' => 'driver_details'
+    ]],
+    ['$match' => [
+        'race_details.year' => 2015,
+        'position' => 1
+    ]],
+    ['$count' => 'total']
+]);
+
+$total_row = iterator_to_array($total_result)[0];
 $total_pages = ceil($total_row['total'] / $results_per_page);
 
 // Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-
-// Calculate the starting limit number for the query
 $start_from = ($current_page - 1) * $results_per_page;
 
-// SQL query to fetch race name, circuit name, and winning driver for 2015 races with limit
-$sql = "SELECT r.name AS race_name, c.circuit_name, d.forename AS winner 
-        FROM results rs 
-        INNER JOIN races r ON rs.raceId = r.raceId 
-        INNER JOIN circuits c ON r.circuit_id = c.circuit_id 
-        INNER JOIN drivers d ON rs.driverId = d.driverId 
-        WHERE r.year = 2015 AND rs.position = 1 
-        ORDER BY r.date 
-        LIMIT $start_from, $results_per_page";
+// MongoDB query to fetch race name, circuit name, and winning driver for 2015 races with limit
+$pipeline = [
+    ['$lookup' => [
+        'from' => 'races',
+        'localField' => 'raceId',
+        'foreignField' => 'raceId',
+        'as' => 'race_details'
+    ]],
+    ['$lookup' => [
+        'from' => 'circuits',
+        'localField' => 'race_details.circuit_id',
+        'foreignField' => 'circuit_id',
+        'as' => 'circuit_details'
+    ]],
+    ['$lookup' => [
+        'from' => 'drivers',
+        'localField' => 'driverId',
+        'foreignField' => 'driverId',
+        'as' => 'driver_details'
+    ]],
+    ['$unwind' => '$race_details'],
+    ['$unwind' => '$circuit_details'],
+    ['$unwind' => '$driver_details'],
+    ['$match' => [
+        'race_details.year' => 2015,
+        'position' => 1
+    ]],
+    ['$sort' => ['race_details.date' => 1]],
+    ['$skip' => $start_from],
+    ['$limit' => $results_per_page],
+    ['$project' => [
+        'race_name' => '$race_details.name',
+        'circuit_name' => '$circuit_details.circuit_name',
+        'winner' => '$driver_details.forename'
+    ]]
+];
 
-$result = $conn->query($sql);
+$result = $db->results->aggregate($pipeline);
 
 ?>
-
-
 
 <!doctype html>
 <html lang="en">
@@ -55,7 +96,7 @@ $result = $conn->query($sql);
         <div class="row">
             <div class="col-md-2">
                 <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
+                  <a href="index.php">  <!-- <h4>Formula1</h4></a> -->
                 </div>
             </div>
         </div>
@@ -82,35 +123,28 @@ $result = $conn->query($sql);
                         
                        
 
-<div class="row mt-5">
-    <table  class="table table-dark table-striped">
-        <thead>
-          <tr>
-          <th>Race Name</th>
-                                    <th>Circuit Name</th>
-                                    <th>Winner</th>
-          </tr>
-        </thead>
-        <tbody>
-        <?php
-                                if ($result->num_rows > 0) {
-                                    // Output each row of data
-                                    while($row = $result->fetch_assoc()) {
-                                        echo "<tr>";
-                                        echo "<td>" . $row['race_name'] . "</td>";
-                                        echo "<td>" . $row['circuit_name'] . "</td>";
-                                        echo "<td>" . $row['winner'] . "</td>";
-                                        echo "</tr>";
-                                    }
-                                } else {
-                                    echo "<tr><td colspan='3'>No data available</td></tr>";
-                                }
-                                ?>
-                            </tbody>
-        </tbody>
-      </table>
-      
-</div>
+                        <div class="row mt-5">
+                              <table class="table table-dark table-striped">
+                                  <thead>
+                                      <tr>
+                                          <th>Race Name</th>
+                                          <th>Circuit Name</th>
+                                          <th>Winner</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      <?php
+                                      foreach ($result as $row) {
+                                          echo "<tr>";
+                                          echo "<td>" . $row['race_name'] . "</td>";
+                                          echo "<td>" . $row['circuit_name'] . "</td>";
+                                          echo "<td>" . $row['winner'] . "</td>";
+                                          echo "</tr>";
+                                      }
+                                      ?>
+                                  </tbody>
+                              </table>
+                          </div>
 
     <!-- Pagination Controls (Previous and Next only) -->
     <nav>
@@ -176,8 +210,6 @@ $result = $conn->query($sql);
         </div>
     </div>
    </section>
-
-
 
    <script>
     // Show more items when "View More" is clicked

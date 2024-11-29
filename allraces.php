@@ -3,17 +3,17 @@
 include 'db/db.php';  // Include your database connection
 
 // Initialize variables
-$sort_order_lap = 'ASC';  // Default sorting for fastest lap time
-$sort_order_position = 'ASC';  // Default sorting for position
-$search_keyword = '';  // Default search keyword
+$sort_order_lap = 'ASC';
+$sort_order_position = 'ASC';
+$search_keyword = '';
 
 // Handle GET requests for sorting and searching
 if (isset($_GET['sort_order_lap'])) {
-    $sort_order_lap = $_GET['sort_order_lap'];
+    $sort_order_lap = $_GET['sort_order_lap'] === 'DESC' ? -1 : 1;
 }
 
 if (isset($_GET['sort_order_position'])) {
-    $sort_order_position = $_GET['sort_order_position'];
+    $sort_order_position = $_GET['sort_order_position'] === 'DESC' ? -1 : 1;
 }
 
 if (isset($_GET['search'])) {
@@ -23,45 +23,76 @@ if (isset($_GET['search'])) {
 // Set the number of results per page
 $results_per_page = 10;
 
-// Determine the total number of records for pagination
-$sql_total = "SELECT COUNT(*) AS total 
-              FROM (SELECT r.name AS race_name, d.forename, rs.fastestLapTime, rs.position 
-                    FROM results rs 
-                    INNER JOIN drivers d ON rs.driverId = d.driverId 
-                    INNER JOIN races r ON rs.raceId = r.raceId 
-                    WHERE rs.fastestLapTime IS NOT NULL AND rs.position <> 1
-                    AND (d.forename LIKE ?)) AS subquery";  // Use placeholders for prepared statements
-
-$stmt = $conn->prepare($sql_total);
-$search_param = "%$search_keyword%";
-$stmt->bind_param("s", $search_param);
-$stmt->execute();
-$total_result = $stmt->get_result();
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row['total'] / $results_per_page);
-
-// Get the current page number from URL, if not set, default to 1
+// Determine the current page
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
-// Calculate the starting limit number for the query
-$start_from = ($current_page - 1) * $results_per_page;
+// MongoDB Aggregation Pipeline
+$pipeline = [
+    [
+        '$match' => [
+            'fastestLapTime' => ['$ne' => null],
+            'position' => ['$ne' => 1],
+            'forename' => new MongoDB\BSON\Regex($search_keyword, 'i')  // Case-insensitive search
+        ]
+    ],
+    [
+        '$lookup' => [
+            'from' => 'drivers',
+            'localField' => 'driverId',
+            'foreignField' => 'driverId',
+            'as' => 'driver_details'
+        ]
+    ],
+    [
+        '$lookup' => [
+            'from' => 'races',
+            'localField' => 'raceId',
+            'foreignField' => 'raceId',
+            'as' => 'race_details'
+        ]
+    ],
+    [
+        '$unwind' => '$driver_details'
+    ],
+    [
+        '$unwind' => '$race_details'
+    ],
+    [
+        '$project' => [
+            'race_name' => '$race_details.name',
+            'forename' => '$driver_details.forename',
+            'fastestLapTime' => 1,
+            'position' => 1
+        ]
+    ],
+    [
+        '$sort' => [
+            'fastestLapTime' => $sort_order_lap,
+            'position' => $sort_order_position
+        ]
+    ],
+    [
+        '$skip' => ($current_page - 1) * $results_per_page
+    ],
+    [
+        '$limit' => $results_per_page
+    ]
+];
 
-// SQL query to fetch race names, driver names, fastest lap times, and positions with limit
-$sql = "SELECT r.name AS race_name, d.forename, rs.fastestLapTime, rs.position 
-        FROM results rs 
-        INNER JOIN drivers d ON rs.driverId = d.driverId 
-        INNER JOIN races r ON rs.raceId = r.raceId 
-        WHERE rs.fastestLapTime IS NOT NULL AND rs.position <> 1 
-        AND (d.forename LIKE ?) 
-        ORDER BY rs.fastestLapTime $sort_order_lap, rs.position $sort_order_position 
-        LIMIT ?, ?";  // Use placeholders for prepared statements
+// Execute the aggregation pipeline
+$collection = $conn->selectCollection('results');  // Ensure 'results' is the correct collection name
+$result = $collection->aggregate($pipeline);
 
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("sii", $search_param, $start_from, $results_per_page);
-$stmt->execute();
-$result = $stmt->get_result();
+// Count total documents for pagination
+$total_count = $collection->countDocuments([
+    'fastestLapTime' => ['$ne' => null],
+    'position' => ['$ne' => 1],
+    'forename' => new MongoDB\BSON\Regex($search_keyword, 'i')
+]);
+
+$total_pages = ceil($total_count / $results_per_page);
+
 ?>
-
 
 <!doctype html>
 <html lang="en">
@@ -79,9 +110,9 @@ $result = $stmt->get_result();
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-2">
-                <div class="heading">
+                <!-- <div class="heading">
                   <a href="index.php">  <h4>Formula1</h4></a>
-                </div>
+                </div> -->
             </div>
         </div>
     </div>
@@ -145,30 +176,28 @@ $result = $stmt->get_result();
                         <?php endif; ?>
                         </form>
                 </div>
-<div class="row mt-5">
-    <table  class="table table-dark table-striped">
-        <thead>
-          <tr>
-          <th>Race Name</th>
-                            <th>Driver Name</th>
-                            <th>Fastest Lap Time</th>
-                            <th>Position</th>
-          </tr>
-        </thead>
-        <tbody>
-        <?php while ($row = $result->fetch_assoc()): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($row['race_name']); ?></td>
-                                <td><?php echo htmlspecialchars($row['forename']); ?></td>
-                                <td><?php echo htmlspecialchars($row['fastestLapTime']); ?></td>
-                                <td><?php echo htmlspecialchars($row['position']); ?></td>
-                            </tr>
-                        <?php endwhile; ?>
-                            </tbody>
-        </tbody>
-      </table>
-      
-</div>
+    <div class="row mt-5">
+        <table class="table table-dark table-striped">
+            <thead>
+                <tr>
+                    <th>Race Name</th>
+                    <th>Driver Name</th>
+                    <th>Fastest Lap Time</th>
+                    <th>Position</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($result as $row): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($row['race_name']); ?></td>
+                        <td><?php echo htmlspecialchars($row['forename']); ?></td>
+                        <td><?php echo htmlspecialchars($row['fastestLapTime']); ?></td>
+                        <td><?php echo htmlspecialchars($row['position']); ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 
      <!-- Pagination Controls -->
      <div class="pagination">

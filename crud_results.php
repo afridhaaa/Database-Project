@@ -154,7 +154,7 @@ if (isset($_GET['delete'])) {
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <!-- <th>ID</th> -->
                         <th>Race ID</th>
                         <th>Driver ID</th>
                         <th>Constructor ID</th>
@@ -179,7 +179,7 @@ if (isset($_GET['delete'])) {
                     foreach ($result as $row) {
                         $id = (string)$row['_id'];
                         echo "<tr>";
-                        echo "<td>{$id}</td>";
+                        // echo "<td>{$id}</td>";
                         echo "<td>{$row['raceId']}</td>";
                         echo "<td>{$row['driverId']}</td>";
                         echo "<td>{$row['constructorId']}</td>";
@@ -204,34 +204,41 @@ if (isset($_GET['delete'])) {
 
                         // Edit Result Modal
                         echo "
-                        <div class='modal fade' id='editResultModal{$id}' tabindex='-1' aria-labelledby='editResultLabel' aria-hidden='true'>
-                            <div class='modal-dialog'>
-                                <div class='modal-content'>
-                                    <div class='modal-header'>
-                                        <h5 class='modal-title' id='editResultLabel'>Edit Result</h5>
-                                        <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
-                                    </div>
-                                    <form action='' method='POST'>
-                                        <div class='modal-body'>
-                                            <input type='hidden' name='resultId' value='{$id}'>
-                                            <div class='mb-3'>
-                                                <label for='raceId' class='form-label'>Race ID</label>
-                                                <input type='number' class='form-control' name='raceId' value='{$row['raceId']}' required>
-                                            </div>
-                                            <div class='mb-3'>
-                                                <label for='driverId' class='form-label'>Driver ID</label>
-                                                <input type='number' class='form-control' name='driverId' value='{$row['driverId']}' required>
-                                            </div>
-                                            <!-- Additional fields go here in similar format -->
-                                        </div>
-                                        <div class='modal-footer'>
-                                            <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Close</button>
-                                            <button type='submit' class='btn btn-primary' name='edit'>Save Changes</button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>";
+    <div class='modal fade' id='editResultModal{$id}' tabindex='-1' aria-labelledby='editResultLabel' aria-hidden='true'>
+        <div class='modal-dialog'>
+            <div class='modal-content'>
+                <div class='modal-header'>
+                    <h5 class='modal-title' id='editResultLabel'>Edit Result</h5>
+                    <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+                </div>
+                <form action='' method='POST'>
+                    <div class='modal-body'>
+                        <input type='hidden' name='resultId' value='{$id}'>
+                        <div class='mb-3'><label for='raceId'>Race ID</label><input type='number' class='form-control' name='raceId' value='{$row['raceId']}' required></div>
+                        <div class='mb-3'><label for='driverId'>Driver ID</label><input type='number' class='form-control' name='driverId' value='{$row['driverId']}' required></div>
+                        <div class='mb-3'><label for='constructorId'>Constructor ID</label><input type='number' class='form-control' name='constructorId' value='{$row['constructorId']}' required></div>
+                        <div class='mb-3'><label for='number'>Number</label><input type='number' class='form-control' name='number' value='{$row['number']}' required></div>
+                        <div class='mb-3'><label for='grid'>Grid</label><input type='number' class='form-control' name='grid' value='{$row['grid']}' required></div>
+                        <div class='mb-3'><label for='position'>Position</label><input type='text' class='form-control' name='position' value='{$row['position']}' required></div>
+                        <div class='mb-3'><label for='positionOrder'>Position Order</label><input type='number' class='form-control' name='positionOrder' value='{$row['positionOrder']}' required></div>
+                        <div class='mb-3'><label for='points'>Points</label><input type='number' step='0.01' class='form-control' name='points' value='{$row['points']}' required></div>
+                        <div class='mb-3'><label for='laps'>Laps</label><input type='number' class='form-control' name='laps' value='{$row['laps']}' required></div>
+                        <div class='mb-3'><label for='time'>Time</label><input type='text' class='form-control' name='time' value='{$row['time']}' required></div>
+                        <div class='mb-3'><label for='milliseconds'>Milliseconds</label><input type='number' class='form-control' name='milliseconds' value='{$row['milliseconds']}' required></div>
+                        <div class='mb-3'><label for='fastestLap'>Fastest Lap</label><input type='number' class='form-control' name='fastestLap' value='{$row['fastestLap']}' required></div>
+                        <div class='mb-3'><label for='rank'>Rank</label><input type='number' class='form-control' name='rank' value='{$row['rank']}' required></div>
+                        <div class='mb-3'><label for='fastestLapTime'>Fastest Lap Time</label><input type='text' class='form-control' name='fastestLapTime' value='{$row['fastestLapTime']}' required></div>
+                        <div class='mb-3'><label for='fastestLapSpeed'>Fastest Lap Speed</label><input type='number' step='0.001' class='form-control' name='fastestLapSpeed' value='{$row['fastestLapSpeed']}' required></div>
+                        <div class='mb-3'><label for='statusId'>Status ID</label><input type='number' class='form-control' name='statusId' value='{$row['statusId']}' required></div>
+                    </div>
+                    <div class='modal-footer'>
+                        <button type='button' class='btn btn-secondary' data-bs-dismiss='modal'>Close</button>
+                        <button type='submit' class='btn btn-primary' name='edit'>Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>";
                     }
                     ?>
                 </tbody>
@@ -265,7 +272,6 @@ if (isset($_GET['delete'])) {
     </ul>
 </nav>
 
-<!-- Create Result Modal -->
 <div class="modal fade" id="createResultModal" tabindex="-1" aria-labelledby="createResultLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -277,7 +283,20 @@ if (isset($_GET['delete'])) {
                 <div class="modal-body">
                     <div class="mb-3"><label for="raceId">Race ID</label><input type="number" class="form-control" name="raceId" required></div>
                     <div class="mb-3"><label for="driverId">Driver ID</label><input type="number" class="form-control" name="driverId" required></div>
-                    <!-- Additional fields go here in similar format -->
+                    <div class="mb-3"><label for="constructorId">Constructor ID</label><input type="number" class="form-control" name="constructorId" required></div>
+                    <div class="mb-3"><label for="number">Number</label><input type="number" class="form-control" name="number" required></div>
+                    <div class="mb-3"><label for="grid">Grid</label><input type="number" class="form-control" name="grid" required></div>
+                    <div class="mb-3"><label for="position">Position</label><input type="text" class="form-control" name="position" required></div>
+                    <div class="mb-3"><label for="positionOrder">Position Order</label><input type="number" class="form-control" name="positionOrder" required></div>
+                    <div class="mb-3"><label for="points">Points</label><input type="number" step="0.01" class="form-control" name="points" required></div>
+                    <div class="mb-3"><label for="laps">Laps</label><input type="number" class="form-control" name="laps" required></div>
+                    <div class="mb-3"><label for="time">Time</label><input type="text" class="form-control" name="time" required></div>
+                    <div class="mb-3"><label for="milliseconds">Milliseconds</label><input type="number" class="form-control" name="milliseconds" required></div>
+                    <div class="mb-3"><label for="fastestLap">Fastest Lap</label><input type="number" class="form-control" name="fastestLap" required></div>
+                    <div class="mb-3"><label for="rank">Rank</label><input type="number" class="form-control" name="rank" required></div>
+                    <div class="mb-3"><label for="fastestLapTime">Fastest Lap Time</label><input type="text" class="form-control" name="fastestLapTime" required></div>
+                    <div class="mb-3"><label for="fastestLapSpeed">Fastest Lap Speed</label><input type="number" step="0.001" class="form-control" name="fastestLapSpeed" required></div>
+                    <div class="mb-3"><label for="statusId">Status ID</label><input type="number" class="form-control" name="statusId" required></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>

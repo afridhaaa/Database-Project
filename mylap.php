@@ -1,43 +1,69 @@
 <?php
 include 'db/db.php';
-include 'process.php';
+$collection = $db->selectCollection('lap_times');
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 // Define how many results you want per page
-$results_per_page = 13;
+$results_per_page = 10;
 
-// Determine which page number visitor is currently on
-if (isset($_GET['page']) && is_numeric($_GET['page'])) {
-    $current_page = (int)$_GET['page'];
-} else {
-    $current_page = 1; // Set default page number to 1
+$current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$search_lap = isset($_GET['search_lap']) ? trim($_GET['search_lap']) : '';
+$search_position = isset($_GET['search_position']) ? trim($_GET['search_position']) : '';
+$sort_order = isset($_GET['sort_order']) && $_GET['sort_order'] === 'DESC' ? -1 : 1;
+
+// Start from for pagination
+$skip = ($current_page - 1) * $results_per_page;
+
+$pipeline = [];
+
+// Add search conditions if the search bars are filled
+$match_conditions = [];
+if (!empty($search_lap)) {
+    $match_conditions[] = ['lap' => intval($search_lap)];  // Exact match for lap
+}
+if (!empty($search_position)) {
+    $match_conditions[] = ['position' => intval($search_position)];  // Exact match for position
 }
 
-// Determine the SQL LIMIT starting number for the results on the displaying page
-$start_from = ($current_page - 1) * $results_per_page;
+// Add $match stage if there are any conditions
+if (!empty($match_conditions)) {
+    $pipeline[] = ['$match' => ['$or' => $match_conditions]];
+}
 
-// Handle sorting and search
-$sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'ASC';
-$search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
+// Include necessary fields and sort results
+$pipeline[] = [
+    '$project' => [
+        '_id' => 1,
+        'raceId' => 1,
+        'driverId' => 1,
+        'lap' => 1,
+        'position' => 1,
+        'time' => 1,
+        'milliseconds' => 1
+    ]
+];
+$pipeline[] = ['$sort' => ['lap' => $sort_order]];
 
-// Construct SQL query for fetching lap times with sorting and search
-$sql = "SELECT lt.id, lt.raceId, lt.driverId, lt.lap, lt.position, lt.time, lt.milliseconds 
-        FROM lap_times lt 
-        WHERE lt.driverId LIKE '%$search_keyword%' 
-        OR lt.position LIKE '%$search_keyword%' 
-        OR lt.lap LIKE '%$search_keyword%' 
-        ORDER BY lt.lap $sort_order 
-        LIMIT $start_from, $results_per_page";
-$result = $conn->query($sql);
+// Add pagination stages
+$pipeline[] = ['$skip' => $skip];
+$pipeline[] = ['$limit' => $results_per_page];
 
-// Find out the total number of pages
-$total_sql = "SELECT COUNT(*) AS total 
-              FROM lap_times lt 
-              WHERE lt.driverId LIKE '%$search_keyword%' 
-              OR lt.position LIKE '%$search_keyword%' 
-              OR lt.lap LIKE '%$search_keyword%'";
-$total_result = $conn->query($total_sql);
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row["total"] / $results_per_page);
+// Fetch data using aggregation pipeline
+$data = iterator_to_array($collection->aggregate($pipeline), false);
+
+// Total count for pagination
+$total_pipeline = [];
+if (!empty($match_conditions)) {
+    $total_pipeline[] = ['$match' => ['$or' => $match_conditions]];
+}
+$total_pipeline[] = ['$count' => 'total'];
+
+$total_data = iterator_to_array($collection->aggregate($total_pipeline), false);
+$total_count = $total_data[0]['total'] ?? 0;
+$total_pages = ceil($total_count / $results_per_page);
 ?>
 
 <!doctype html>
@@ -56,7 +82,7 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
         <div class="row">
             <div class="col-md-2">
                 <div class="heading">
-                  <a href="index.php"><h4>Formula1</h4></a>
+                  <a href="index.php"> <!-- <h4>Formula1</h4></a> -->
                 </div>
             </div>
         </div>
@@ -73,6 +99,9 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
                 <div class="submain">
                     <div class="container py-3">
                         <div class="row">
+                            <div class="back-button" style="margin: 20px;">
+                                <a href="index.php" class="button-8">← Back to Home</a>
+                            </div>
                             <div class="head">
                                 <h2>Lap Times Details</h2>
                             </div>
@@ -81,19 +110,25 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
                         <!-- Sort and Search Form -->
                         <div class="custom-filter-container my-5">
                             <form method="GET" action="mylap.php" class="custom-filter-form">
+                                <!-- Search Bar for Lap -->
+                                <div class="custom-form-group">
+                                    <label for="search_lap" class="custom-label">Search by Lap:</label>
+                                    <input type="text" name="search_lap" class="custom-form-control" placeholder="Search by Lap" value="<?php echo htmlspecialchars($_GET['search_lap'] ?? ''); ?>">
+                                </div>
+
+                                <!-- Search Bar for Position -->
+                                <div class="custom-form-group">
+                                    <label for="search_position" class="custom-label">Search by Position:</label>
+                                    <input type="text" name="search_position" class="custom-form-control" placeholder="Search by Position" value="<?php echo htmlspecialchars($_GET['search_position'] ?? ''); ?>">
+                                </div>
+
                                 <!-- Sort Dropdown -->
                                 <div class="custom-form-group">
                                     <label for="sort_order" class="custom-label">Sort by Lap:</label>
                                     <select name="sort_order" id="sort_order" class="custom-form-control" onchange="this.form.submit()">
-                                        <option value="ASC" <?php if ($sort_order == 'ASC') echo 'selected'; ?>>Ascending</option>
-                                        <option value="DESC" <?php if ($sort_order == 'DESC') echo 'selected'; ?>>Descending</option>
+                                        <option value="ASC" <?php if ($sort_order == 1) echo 'selected'; ?>>Ascending</option>
+                                        <option value="DESC" <?php if ($sort_order == -1) echo 'selected'; ?>>Descending</option>
                                     </select>
-                                </div>
-
-                                <!-- Search Bar -->
-                                <div class="custom-form-group">
-                                    <label for="search" class="custom-label">Search by Driver ID, Position, or Lap:</label>
-                                    <input type="text" name="search" class="custom-form-control custom-search-bar" placeholder="Search Lap Times" value="<?php echo htmlspecialchars($search_keyword); ?>">
                                 </div>
 
                                 <!-- Search Button -->
@@ -104,43 +139,36 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
                         </div>
 
                         <!-- Clear Search Button: Show only when search is applied -->
-                        <?php if (!empty($search_keyword)) : ?>
-                            <div style="margin-bottom: 20px; margin-left:  30px;">
+                        <?php if (!empty($search_lap) || !empty($search_position)) : ?>
+                            <div style="margin-bottom: 20px; margin-left: 30px;">
                                 <a href="mylap.php" class="custom-btn custom-btn-clear">Clear Search</a>
                             </div>
                         <?php endif; ?>
+
 
                         <div class="row mt-5">
                             <table class="table table-dark table-striped">
                                 <thead>
                                     <tr>
-                                        <th scope="col">ID</th>
-                                        <th scope="col">Race ID</th>
-                                        <th scope="col">Driver ID</th>
-                                        <th scope="col">Lap</th>
-                                        <th scope="col">Position</th>
-                                        <th scope="col">Time</th>
-                                        <th scope="col">Milliseconds</th>
+                                        <th>Race ID</th>
+                                        <th>Driver ID</th>
+                                        <th>Lap</th>
+                                        <th>Position</th>
+                                        <th>Time</th>
+                                        <th>Milliseconds</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                <?php
-                                    if ($result->num_rows > 0) {
-                                        while($row = $result->fetch_assoc()) {
-                                            echo "<tr>";
-                                            echo "<td>" . $row['id'] . "</td>";
-                                            echo "<td>" . $row['raceId'] . "</td>";
-                                            echo "<td>" . $row['driverId'] . "</td>";
-                                            echo "<td>" . $row['lap'] . "</td>";
-                                            echo "<td>" . $row['position'] . "</td>";
-                                            echo "<td>" . $row['time'] . "</td>";
-                                            echo "<td>" . $row['milliseconds'] . "</td>";
-                                            echo "</tr>";
-                                        }
-                                    } else {
-                                        echo "<tr><td colspan='7'>No data available</td></tr>";
-                                    }
-                                ?>
+                                    <?php foreach ($data as $row): ?>
+                                        <tr>
+                                            <td><?php echo htmlspecialchars($row['raceId']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['driverId']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['lap']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['position']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['time']); ?></td>
+                                            <td><?php echo htmlspecialchars($row['milliseconds']); ?></td>
+                                        </tr>
+                                    <?php endforeach; ?>
                                 </tbody>
                             </table>
                         </div>
@@ -205,6 +233,22 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
         </div>
     </div>
    </section>
+   <footer>
+        <p style="background-color: #15151E; color: white;">&copy; 2024 Formula Vault. All rights reserved.</p>
+    </footer>
+            </div>
+            </div>
+
+
+   <script>
+    // Show more items when "View More" is clicked
+    document.getElementById("view-more-btn").addEventListener("click", function() {
+        var moreItems = document.getElementById("more-items");
+        var viewMoreBtn = document.getElementById("view-more-li");
+        moreItems.style.display = "block";
+        viewMoreBtn.style.display = "none";
+    });
+</script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   </body>

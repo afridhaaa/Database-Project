@@ -2,42 +2,69 @@
 include 'db/db.php';
 include 'process.php';
 
+// Define the MongoDB collection
+$collection = $client->FormulaVault->circuits; // Adjust collection path as needed
+
 // Define how many results you want per page
 $results_per_page = 10;
 
-// Determine which page number visitor is currently on
-if (isset($_GET['page'])) {
-    $current_page = $_GET['page'];
-} else {
-    $current_page = 1;
-}
-
-// Determine the SQL LIMIT starting number for the results on the displaying page
+// Handle pagination
+$current_page = isset($_GET['page']) && is_numeric($_GET['page']) ? (int)$_GET['page'] : 1;
 $start_from = ($current_page - 1) * $results_per_page;
 
-// Handle sorting and search
-$sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'ASC';
+// Handle sorting
+$sort_order = isset($_GET['sort_order']) && strtolower($_GET['sort_order']) === 'desc' ? -1 : 1;
+
+// Handle search keyword
 $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
 
-// Construct SQL query for fetching circuits with sorting and search
-$sql = "SELECT circuit_name, circuit_location, circuit_country, latitude, longitude, altitude, url 
-        FROM circuits 
-        WHERE circuit_name LIKE '%$search_keyword%' 
-        OR circuit_location LIKE '%$search_keyword%' 
-        OR circuit_country LIKE '%$search_keyword%' 
-        ORDER BY circuit_name $sort_order 
-        LIMIT $start_from, $results_per_page";
-$result = $conn->query($sql);
+// Build MongoDB aggregation pipeline
+$pipeline = [];
 
-// Find out the total number of pages
-$total_sql = "SELECT COUNT(*) AS total 
-              FROM circuits 
-              WHERE circuit_name LIKE '%$search_keyword%' 
-              OR circuit_location LIKE '%$search_keyword%' 
-              OR circuit_country LIKE '%$search_keyword%'";
-$total_result = $conn->query($total_sql);
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row["total"] / $results_per_page);
+if (!empty($search_keyword)) {
+    $pipeline[] = [
+        // Add lowercase version of circuit_name for case-insensitive matching
+        '$addFields' => [
+            'circuit_name_lower' => ['$toLower' => '$circuit_name'],
+            'circuit_location_lower' => ['$toLower' => '$circuit_location'],
+            'circuit_country_lower' => ['$toLower' => '$circuit_country']
+        ]
+    ];
+
+    $pipeline[] = [
+        '$match' => [
+            '$or' => [
+                ['circuit_name_lower' => new MongoDB\BSON\Regex(strtolower($search_keyword), 'i')],
+                ['circuit_location_lower' => new MongoDB\BSON\Regex(strtolower($search_keyword), 'i')],
+                ['circuit_country_lower' => new MongoDB\BSON\Regex(strtolower($search_keyword), 'i')]
+            ]
+        ]
+    ];
+}
+
+
+// Sort stage
+$pipeline[] = ['$sort' => ['circuit_name' => $sort_order]];
+
+// Skip and limit stages for pagination
+$pipeline[] = ['$skip' => $start_from];
+$pipeline[] = ['$limit' => $results_per_page];
+
+// Execute the aggregation query
+$result = $collection->aggregate($pipeline)->toArray();
+
+// Total document count for pagination
+$total_count = $collection->countDocuments(
+    !empty($search_keyword)
+        ? ['$or' => [
+            ['circuit_name' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+            ['circuit_location' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+            ['circuit_country' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+        ]]
+        : []
+);
+
+$total_pages = ceil($total_count / $results_per_page);
 ?>
 
 <!doctype html>
@@ -77,6 +104,33 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
             text-align: center;
             padding: 10px 0;
         }
+        .page-link {
+    background-color: #e94747;
+    color: white;
+    border: 1px solid #e94747;
+    border-radius: 5px;
+    padding: 10px 15px;
+}
+
+.page-link:hover {
+    background-color: #007bff;
+    color: white;
+}
+
+.page-link.active {
+    background-color: #007bff !important; /* Active tab background */
+    color: white !important; /* Active tab text color */
+    font-weight: bold; /* Optional: Make text bold */
+    border: 1px solid #007bff !important; /* Border color for active tab */
+    border-radius: 5px; /* Rounded corners */
+}
+
+.page-link.active:hover {
+    background-color: #0056b3; /* Darker shade on hover */
+    color: white;
+}
+
+
     </style>
 </head>
   <body>
@@ -85,9 +139,9 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-2">
-                <div class="heading">
+                <!-- <div class="heading">
                   <a href="index.php"><h4>Formula1</h4></a>
-                </div>
+                </div> -->
             </div>
         </div>
     </div>
@@ -115,8 +169,8 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
                                 <div class="custom-form-group">
                                     <label for="sort_order" class="custom-label">Sort by Circuit Name:</label>
                                     <select name="sort_order" id="sort_order" class="custom-form-control" onchange="this.form.submit()">
-                                        <option value="ASC" <?php if ($sort_order == 'ASC') echo 'selected'; ?>>A-Z</option>
-                                        <option value="DESC" <?php if ($sort_order == 'DESC') echo 'selected'; ?>>Z-A</option>
+                                        <option value="ASC" <?php if ($sort_order == 1) echo 'selected'; ?>>A-Z</option>
+                                        <option value="DESC" <?php if ($sort_order == -1) echo 'selected'; ?>>Z-A</option>
                                     </select>
                                 </div>
 
@@ -141,7 +195,7 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
                         <?php endif; ?>
 
                         <div class="row mt-5">
-                            <table  class="table table-dark table-striped">
+                            <table class="table table-dark table-striped">
                                 <thead>
                                     <tr>
                                         <th scope="col">Circuit Name</th>
@@ -154,64 +208,54 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
                                     </tr>
                                 </thead>
                                 <tbody>
-                                <?php
-                                    if ($result->num_rows > 0) {
-                                        while($row = $result->fetch_assoc()) {
-                                            echo "<tr>";
-                                            echo "<td>" . $row['circuit_name'] . "</td>";
-                                            echo "<td>" . $row['circuit_location'] . "</td>";
-                                            echo "<td>" . $row['circuit_country'] . "</td>";
-                                            echo "<td>" . $row['latitude'] . "</td>";
-                                            echo "<td>" . $row['longitude'] . "</td>";
-                                            echo "<td>" . $row['altitude'] . "</td>";
-                                            echo "<td><a href='" . $row['url'] . "' target='_blank'>View More</a></td>";
-                                            echo "</tr>";
-                                        }
-                                    } else {
-                                        echo "<tr><td colspan='7'>No data available</td></tr>";
-                                    }
-                                ?>
+                                <?php if (!empty($result)) : ?>
+                                    <?php foreach ($result as $row) : ?>
+                                        <tr>
+                                            <td><?php echo htmlspecialchars($row['circuit_name'] ?? ''); ?></td>
+                                            <td><?php echo htmlspecialchars($row['circuit_location'] ?? ''); ?></td>
+                                            <td><?php echo htmlspecialchars($row['circuit_country'] ?? ''); ?></td>
+                                            <td><?php echo htmlspecialchars($row['latitude'] ?? ''); ?></td>
+                                            <td><?php echo htmlspecialchars($row['longitude'] ?? ''); ?></td>
+                                            <td><?php echo htmlspecialchars($row['altitude'] ?? ''); ?></td>
+                                            <td><a href="<?php echo htmlspecialchars($row['url'] ?? '#'); ?>" target="_blank">View More</a></td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php else : ?>
+                                    <tr><td colspan="7">No data available</td></tr>
+                                <?php endif; ?>
                                 </tbody>
                             </table>
                         </div>
 
-                        <!-- Pagination Controls -->
-                        <div class="pagination">
-    <?php
-    // Ensure $current_page is always an integer
-    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
-        ? intval($_GET['page']) 
-        : 1;
+                        <nav>
+    <ul class="pagination justify-content-center">
+        <?php
+        $adjacents = 7;
+        $start = max(1, $page - $adjacents);
+        $end = min($total_pages, $page + $adjacents);
 
-    // Ensure total_pages is properly set and is at least 1
-    $total_pages = isset($total_pages) && $total_pages > 0 
-        ? intval($total_pages) 
-        : 1;
-
-    // Previous button
-    if ($current_page > 1) {
-        echo '<a href="mycircuit.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
-    } else {
-        echo '<span class="disabled">Previous</span>';
-    }
-
-    // Page numbers
-    for ($i = 1; $i <= $total_pages; $i++) {
-        if ($i == $current_page) {
-            echo '<a href="mycircuit.php?page=' . $i . '" class="active">' . $i . '</a>'; // Active page
-        } else {
-            echo '<a href="mycircuit.php?page=' . $i . '">' . $i . '</a>';
+        // First and Previous buttons
+        if ($total_pages > $adjacents && $page > 1) {
+            echo "<li class='page-item'><a class='page-link' href='mycircuit.php?page=1'>First</a></li>";
+            echo "<li class='page-item'><a class='page-link' href='mycircuit.php?page=" . ($page - 1) . "'>&laquo; Prev</a></li>";
         }
-    }
 
-    // Next button
-    if ($current_page < $total_pages) {
-        echo '<a href="mycircuit.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
-    } else {
-        echo '<span class="disabled">Next</span>';
-    }
-    ?>
-</div>
+        // Page number links
+        for ($i = $start; $i <= $end; $i++) {
+            $active = ($i == $page) ? 'active' : '';
+            echo "<li class='page-item'><a class='page-link $active' href='mycircuit.php?page=$i'>$i</a></li>";
+        }
+
+        // Next and Last buttons
+        if ($total_pages > $adjacents && $page < $total_pages) {
+            echo "<li class='page-item'><a class='page-link' href='mycircuit.php?page=" . ($page + 1) . "'>Next &raquo;</a></li>";
+            echo "<li class='page-item'><a class='page-link' href='mycircuit.php?page=$total_pages'>Last</a></li>";
+        }
+        ?>
+    </ul>
+</nav>
+
+
 
 
                     </div>

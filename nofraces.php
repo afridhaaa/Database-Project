@@ -1,38 +1,129 @@
 <?php
-
-include 'db/db.php';  // Include your database connection
+include 'db/db.php';  // MongoDB connection
 
 // Set the number of results per page
-$results_per_page = 11; // Adjust this to match the number of results you want to show per page
+$results_per_page = 11;
 
 // Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
-// Calculate the starting limit number for the query
-$start_from = ($current_page - 1) * $results_per_page;
+// Calculate the skip limit for pagination
+$skip = ($current_page - 1) * $results_per_page;
 
-// SQL query to fetch drivers, year, total races, and average points
-$sql = "SELECT d.forename, r.year, COUNT(rs.raceId) AS total_races, AVG(rs.points) AS avg_points 
-        FROM results rs 
-        INNER JOIN drivers d ON rs.driverId = d.driverId 
-        INNER JOIN races r ON rs.raceId = r.raceId 
-        WHERE r.year = 2020 
-        GROUP BY d.forename, r.year 
-        ORDER BY avg_points DESC 
-        LIMIT $start_from, $results_per_page";
+// Initialize sort order and search keyword
+$sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'DESC';
+$search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
 
-$result = $conn->query($sql);
+// Build MongoDB Aggregation Pipeline
+$pipeline = [];
 
-// Count total drivers for pagination
-$sql_total = "SELECT COUNT(DISTINCT d.driverId) AS total 
-              FROM results rs 
-              INNER JOIN drivers d ON rs.driverId = d.driverId 
-              INNER JOIN races r ON rs.raceId = r.raceId 
-              WHERE r.year = 2020";
+// Join drivers collection
+$pipeline[] = [
+    '$lookup' => [
+        'from' => 'drivers',
+        'localField' => 'driverId',
+        'foreignField' => 'driverId',
+        'as' => 'driver_info'
+    ]
+];
+$pipeline[] = ['$unwind' => '$driver_info'];
 
-$total_result = $conn->query($sql_total);
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row['total'] / $results_per_page);
+// Join races collection
+$pipeline[] = [
+    '$lookup' => [
+        'from' => 'races',
+        'localField' => 'raceId',
+        'foreignField' => 'raceId',
+        'as' => 'race_info'
+    ]
+];
+$pipeline[] = ['$unwind' => '$race_info'];
+
+// If there is a search keyword, add a match stage to the pipeline after lookups
+if (!empty($search_keyword)) {
+    $pipeline[] = [
+        '$match' => [
+            '$or' => [
+                ['driver_info.forename' => new MongoDB\BSON\Regex($search_keyword, 'i')],  // Search by driver name
+                ['race_info.year' => (int)$search_keyword]  // Search by year (convert to integer)
+            ]
+        ]
+    ];
+}
+
+// Group by driver and year, and calculate total races and average points
+$pipeline[] = [
+    '$group' => [
+        '_id' => [
+            'driver' => '$driver_info.forename',
+            'year' => '$race_info.year'
+        ],
+        'total_races' => ['$sum' => 1],
+        'avg_points' => ['$avg' => '$points']
+    ]
+];
+
+// Apply sort order
+$pipeline[] = ['$sort' => ['avg_points' => ($sort_order == 'DESC' ? -1 : 1)]];
+
+// Skip and limit for pagination
+$pipeline[] = ['$skip' => $skip];
+$pipeline[] = ['$limit' => $results_per_page];
+
+// Execute aggregation query
+$query = $db->results->aggregate($pipeline);
+$results = iterator_to_array($query);
+
+// Total count pipeline for pagination
+$total_pipeline = [
+    // Join drivers and races collections as in the main pipeline
+    [
+        '$lookup' => [
+            'from' => 'drivers',
+            'localField' => 'driverId',
+            'foreignField' => 'driverId',
+            'as' => 'driver_info'
+        ]
+    ],
+    ['$unwind' => '$driver_info'],
+    [
+        '$lookup' => [
+            'from' => 'races',
+            'localField' => 'raceId',
+            'foreignField' => 'raceId',
+            'as' => 'race_info'
+        ]
+    ],
+    ['$unwind' => '$race_info']
+];
+
+// Add search condition if a keyword is provided
+if (!empty($search_keyword)) {
+    $total_pipeline[] = [
+        '$match' => [
+            '$or' => [
+                ['driver_info.forename' => new MongoDB\BSON\Regex($search_keyword, 'i')],  // Search by driver name
+                ['race_info.year' => (int)$search_keyword]  // Search by year (convert to integer)
+            ]
+        ]
+    ];
+}
+
+// Group by driver and year to get unique count
+$total_pipeline[] = [
+    '$group' => [
+        '_id' => [
+            'driver' => '$driver_info.driverId',
+            'year' => '$race_info.year'
+        ]
+    ]
+];
+$total_pipeline[] = ['$count' => 'total'];
+
+// Execute total count pipeline
+$total_query = $db->results->aggregate($total_pipeline);
+$total_result = iterator_to_array($total_query);
+$total_pages = ceil(($total_result[0]['total'] ?? 0) / $results_per_page);
 
 ?>
 
@@ -52,9 +143,9 @@ $total_pages = ceil($total_row['total'] / $results_per_page);
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-2">
-                <div class="heading">
+                <!-- <div class="heading">
                   <a href="index.php">  <h4>Formula1</h4></a>
-                </div>
+                </div> -->
             </div>
         </div>
     </div>
@@ -74,43 +165,71 @@ $total_pages = ceil($total_row['total'] / $results_per_page);
         <a href="index.php" class="button-8">← Back to Home</a>
     </div>
                             <div class="head">
-     <h2>Number of Races and Average Points in 2020</h2>
+     <h2>Number of Races and Average Points By Year</h2>
                             </div>
                         </div>
-                        
+    <!-- Sort and Search Form -->
+<div class="custom-filter-container">
+    <form method="GET" action="nofraces.php" class="custom-filter-form">
+        <!-- Sort Dropdown -->
+        <div class="custom-form-group">
+            <label for="sort_order" class="custom-label">Sort by Points:</label>
+            <select name="sort_order" id="sort_order" class="custom-form-control" onchange="this.form.submit()">
+                <option value="DESC" <?php if ($sort_order == 'DESC') echo 'selected'; ?>>Most to Least</option>
+                <option value="ASC" <?php if ($sort_order == 'ASC') echo 'selected'; ?>>Least to Most</option>
+            </select>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="custom-form-group">
+            <label for="search" class="custom-label">Search by Year or Driver Name:</label>
+            <input type="text" name="search" class="custom-form-control custom-search-bar" placeholder="Search by year or driver" value="<?php echo htmlspecialchars($search_keyword); ?>">
+        </div>
+
+        <!-- Search Button -->
+        <div class="custom-form-group">
+            <button type="submit" class="custom-btn custom-btn-primary">Search</button>
+        </div>
+    </form>
+</div>
+
+
+    <!-- Clear Search Button: Show only when search is applied -->
+    <?php if (!empty($search_keyword)) : ?>
+        <div style="margin-bottom: 20px; margin-left: 30px;">
+            <a href="nofraces.php" class="custom-btn custom-btn-clear">Clear Filter</a>
+        </div>
+    <?php endif; ?>
     
 
-<div class="row mt-5">
-    <table  class="table table-dark table-striped">
-        <thead>
-          <tr>
-          <th>Driver</th>
-                                    <th>Year</th>
-                                    <th>Total Races</th>
-                                    <th>Average Points</th>
-          </tr>
-        </thead>
-        <tbody>
-        <?php
-                                if ($result->num_rows > 0) {
-                                    // Output each row of data
-                                    while($row = $result->fetch_assoc()) {
-                                        echo "<tr>";
-                                        echo "<td>" . htmlspecialchars($row['forename']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['year']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['total_races']) . "</td>";
-                                        echo "<td>" . htmlspecialchars(number_format($row['avg_points'], 2)) . "</td>"; // Format to 2 decimal places
-                                        echo "</tr>";
-                                    }
-                                } else {
-                                    echo "<tr><td colspan='4'>No data available</td></tr>";
-                                }
-                                ?>
-                            </tbody>
-        </tbody>
-      </table>
-      
-</div>
+                        <div class="row mt-5">
+                            <table class="table table-dark table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Driver</th>
+                                        <th>Year</th>
+                                        <th>Total Races</th>
+                                        <th>Average Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php
+                                        if (count($results) > 0) {
+                                            foreach ($results as $row) {
+                                                echo "<tr>";
+                                                echo "<td>" . htmlspecialchars($row['_id']['driver']) . "</td>";
+                                                echo "<td>" . htmlspecialchars($row['_id']['year']) . "</td>";
+                                                echo "<td>" . htmlspecialchars($row['total_races']) . "</td>";
+                                                echo "<td>" . htmlspecialchars(number_format($row['avg_points'], 2)) . "</td>"; // Format to 2 decimal places
+                                                echo "</tr>";
+                                            }
+                                        } else {
+                                            echo "<tr><td colspan='4'>No data available</td></tr>";
+                                        }
+                                    ?>
+                                </tbody>
+                            </table>
+                        </div>
 
         <!-- Pagination Controls (Previous and Next only) -->
         <nav>

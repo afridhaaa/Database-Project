@@ -5,51 +5,102 @@ include 'db/db.php';  // Include your database connection
 $results_per_page = 10;
 
 // Initialize variables for sorting and searching
-$sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'ASC';
+$sort_order = isset($_GET['sort_order']) && $_GET['sort_order'] === 'DESC' ? -1 : 1;
+$sort_order_text = $sort_order === 1 ? 'ASC' : 'DESC';
+
 $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
-
-// Prepare the SQL query to get the total number of records
-$sql_total = "SELECT COUNT(*) AS total 
-              FROM (SELECT ci.circuit_name, d.forename, AVG(lap.milliseconds) AS avg_speed 
-                    FROM lap_times lap 
-                    INNER JOIN drivers d ON lap.driverId = d.driverId 
-                    INNER JOIN races r ON lap.raceId = r.raceId 
-                    INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
-                    WHERE ci.circuit_name LIKE ? OR d.forename LIKE ?
-                    GROUP BY ci.circuit_name, d.forename) AS subquery";
-
-$search_param = '%' . $search_keyword . '%';
-$stmt_total = $conn->prepare($sql_total);
-$stmt_total->bind_param('ss', $search_param, $search_param);
-$stmt_total->execute();
-$total_result = $stmt_total->get_result();
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row['total'] / $results_per_page);
 
 // Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-
-// Calculate the starting limit number for the query
 $start_from = ($current_page - 1) * $results_per_page;
 
-// SQL query to fetch circuit name, driver name, and average speed with limit
-$sql = "SELECT ci.circuit_name, d.forename, AVG(lap.milliseconds) AS avg_speed 
-        FROM lap_times lap 
-        INNER JOIN drivers d ON lap.driverId = d.driverId 
-        INNER JOIN races r ON lap.raceId = r.raceId 
-        INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
-        WHERE ci.circuit_name LIKE ? OR d.forename LIKE ?
-        GROUP BY ci.circuit_name, d.forename 
-        ORDER BY avg_speed $sort_order 
-        LIMIT ?, ?";
+// Aggregation pipeline for counting total records
+$pipeline_count = [
+    ['$lookup' => [
+        'from' => 'drivers',
+        'localField' => 'driverId',
+        'foreignField' => 'driverId',
+        'as' => 'driver_details'
+    ]],
+    ['$lookup' => [
+        'from' => 'races',
+        'localField' => 'raceId',
+        'foreignField' => 'raceId',
+        'as' => 'race_details'
+    ]],
+    ['$lookup' => [
+        'from' => 'circuits',
+        'localField' => 'race_details.circuit_id',
+        'foreignField' => 'circuit_id',
+        'as' => 'circuit_details'
+    ]],
+    ['$unwind' => '$driver_details'],
+    ['$unwind' => '$race_details'],
+    ['$unwind' => '$circuit_details'],
+    ['$match' => [
+        '$or' => [
+            ['circuit_details.circuit_name' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+            ['driver_details.forename' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+        ]
+    ]],
+    ['$group' => [
+        '_id' => [
+            'circuit_name' => '$circuit_details.circuit_name',
+            'driver_name' => '$driver_details.forename'
+        ],
+        'avg_speed' => ['$avg' => '$milliseconds']
+    ]],
+    ['$count' => 'total']
+];
 
-$stmt = $conn->prepare($sql);
-$stmt->bind_param('ssii', $search_param, $search_param, $start_from, $results_per_page);
-$stmt->execute();
-$result = $stmt->get_result();
+$total_result = $db->lap_times->aggregate($pipeline_count)->toArray();
+$total_count = $total_result[0]['total'] ?? 0;
+$total_pages = ceil($total_count / $results_per_page);
+
+// Aggregation pipeline to fetch paginated data
+$pipeline = [
+    ['$lookup' => [
+        'from' => 'drivers',
+        'localField' => 'driverId',
+        'foreignField' => 'driverId',
+        'as' => 'driver_details'
+    ]],
+    ['$lookup' => [
+        'from' => 'races',
+        'localField' => 'raceId',
+        'foreignField' => 'raceId',
+        'as' => 'race_details'
+    ]],
+    ['$lookup' => [
+        'from' => 'circuits',
+        'localField' => 'race_details.circuit_id',
+        'foreignField' => 'circuit_id',
+        'as' => 'circuit_details'
+    ]],
+    ['$unwind' => '$driver_details'],
+    ['$unwind' => '$race_details'],
+    ['$unwind' => '$circuit_details'],
+    ['$match' => [
+        '$or' => [
+            ['circuit_details.circuit_name' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+            ['driver_details.forename' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+        ]
+    ]],
+    ['$group' => [
+        '_id' => [
+            'circuit_name' => '$circuit_details.circuit_name',
+            'driver_name' => '$driver_details.forename'
+        ],
+        'avg_speed' => ['$avg' => '$milliseconds']
+    ]],
+    ['$sort' => ['avg_speed' => $sort_order]],
+    ['$skip' => $start_from],
+    ['$limit' => $results_per_page]
+];
+
+$result = $db->lap_times->aggregate($pipeline);
+
 ?>
-
-
 
 <!doctype html>
 <html lang="en">
@@ -68,7 +119,7 @@ $result = $stmt->get_result();
         <div class="row">
             <div class="col-md-2">
                 <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
+                  <a href="index.php">  <!-- <h4>Formula1</h4></a> -->
                 </div>
             </div>
         </div>
@@ -95,13 +146,13 @@ $result = $stmt->get_result();
                         
  <!-- Sort and Search Form -->
  <div class="custom-filter-container">
-        <form method="GET" action="avgspeed.php" class="custom-filter-form">
+        <form method="GET" action="dwithavgspeed.php" class="custom-filter-form">
             <!-- Sort Dropdown -->
             <div class="custom-form-group">
                 <label for="sort_order" class="custom-label">Sort by Average Speed:</label>
                 <select name="sort_order" id="sort_order" class="custom-form-control" onchange="this.form.submit()">
-                    <option value="ASC" <?php if ($sort_order == 'ASC') echo 'selected'; ?>>Least to Most</option>
-                    <option value="DESC" <?php if ($sort_order == 'DESC') echo 'selected'; ?>>Most to Least</option>
+                    <option value="ASC" <?php if ($sort_order_text === 'ASC') echo 'selected'; ?>>Least to Most</option>
+                    <option value="DESC" <?php if ($sort_order_text === 'DESC') echo 'selected'; ?>>Most to Least</option>
                 </select>
             </div>
 
@@ -121,59 +172,45 @@ $result = $stmt->get_result();
     <!-- Clear Search Button: Show only when search is applied -->
     <?php if (!empty($search_keyword)) : ?>
         <div style="margin-bottom: 20px; margin-left: 30px;">
-            <a href="avgspeed.php" class="custom-btn custom-btn-clear">Clear Search</a>
+            <a href="dwithavgspeed.php" class="custom-btn custom-btn-clear">Clear Search</a>
         </div>
     <?php endif; ?>                       
 
-<div class="row mt-5">
-    <table  class="table table-dark table-striped">
-        <thead>
-          <tr>
-          <th>Circuit Name</th>
-                                    <th>Driver Name</th>
-                                    <th>Average Speed (ms)</th>
-          </tr>
-        </thead>
-        <tbody>
-        <?php
-                                if ($result->num_rows > 0) {
-                                    // Output each row of data
-                                    while ($row = $result->fetch_assoc()) {
-                                        echo "<tr>";
-                                        echo "<td>" . htmlspecialchars($row['circuit_name']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['forename']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['avg_speed']) . "</td>";
-                                        echo "</tr>";
-                                    }
-                                } else {
-                                    echo "<tr><td colspan='3'>No data available</td></tr>";
-                                }
-                                ?>
-                            </tbody>
-        </tbody>
-      </table>
-      
-</div>
+    <div class="row mt-5">
+                              <table class="table table-dark table-striped">
+                                  <thead>
+                                      <tr>
+                                          <th>Circuit Name</th>
+                                          <th>Driver Name</th>
+                                          <th>Average Speed (ms)</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      <?php
+                                      foreach ($result as $row) {
+                                          echo "<tr>";
+                                          echo "<td>" . htmlspecialchars($row['_id']['circuit_name']) . "</td>";
+                                          echo "<td>" . htmlspecialchars($row['_id']['driver_name']) . "</td>";
+                                          echo "<td>" . htmlspecialchars($row['avg_speed']) . "</td>";
+                                          echo "</tr>";
+                                      }
+                                      ?>
+                                  </tbody>
+                              </table>
+                          </div>
 
-     <!-- Pagination Controls with Page Numbers -->
-     <!-- Pagination Controls with Page Numbers -->
 <div class="pagination">
     <?php
-    // Ensure $current_page is always an integer
-    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+    // Ensure current page and total pages are integers
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) && $_GET['page'] > 0 
         ? intval($_GET['page']) 
         : 1;
 
-    // Ensure $total_pages is a valid integer
     $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
         ? intval($total_pages) 
         : 1;
 
-    // Ensure search and sort parameters have default values
-    $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
-    $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'asc';
-
-    // Limit the number of visible page links
+    // Number of page links to display at once
     $max_visible_pages = 5;
 
     // Calculate start and end page numbers
@@ -187,46 +224,25 @@ $result = $stmt->get_result();
 
     // Display "Previous" button
     if ($current_page > 1) {
-        echo '<a href="avgspeed.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
+        echo '<a href="dwithavgspeed.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order_text . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
     } else {
         echo '<span class="button-7 disabled">Previous</span>';
     }
 
-    // Display the first page and ellipsis if needed
-    if ($start_page > 1) {
-        echo '<a href="avgspeed.php?page=1&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">1</a>';
-        if ($start_page > 2) {
-            echo '<span class="button-7">...</span>'; // Ellipsis
-        }
-    }
-
-    // Display the dynamic page numbers
+    // Display page numbers within the calculated range
     for ($i = $start_page; $i <= $end_page; $i++) {
-        if ($i == $current_page) {
-            echo '<span class="button-7 active">' . $i . '</span>';
-        } else {
-            echo '<a href="avgspeed.php?page=' . $i . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $i . '</a>';
-        }
-    }
-
-    // Display the last page and ellipsis if needed
-    if ($end_page < $total_pages) {
-        if ($end_page < $total_pages - 1) {
-            echo '<span class="button-7">...</span>'; // Ellipsis
-        }
-        echo '<a href="avgspeed.php?page=' . $total_pages . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $total_pages . '</a>';
+        $active = ($i == $current_page) ? 'active' : '';
+        echo '<a href="dwithavgspeed.php?page=' . $i . '&sort_order=' . $sort_order_text . '&search=' . urlencode($search_keyword) . '" class="button-7 ' . $active . '">' . $i . '</a>';
     }
 
     // Display "Next" button
     if ($current_page < $total_pages) {
-        echo '<a href="avgspeed.php?page=' . ($current_page + 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Next</a>';
+        echo '<a href="dwithavgspeed.php?page=' . ($current_page + 1) . '&sort_order=' . $sort_order_text . '&search=' . urlencode($search_keyword) . '" class="button-7">Next</a>';
     } else {
         echo '<span class="button-7 disabled">Next</span>';
     }
     ?>
 </div>
-
-
                         
                     </div>
                 </div>
@@ -234,7 +250,11 @@ $result = $stmt->get_result();
         </div>
     </div>
    </section>
-
+   <footer>
+        <p style="background-color: #15151E; color: white;">&copy; 2024 Formula Vault. All rights reserved.</p>
+    </footer>
+            </div>
+            </div>
 
 
    <script>

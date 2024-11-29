@@ -2,56 +2,150 @@
 include 'db/db.php';  // Include your database connection
 
 // Set the number of results per page
-$results_per_page = 13; // Adjust this to match the number of results you want to show per page
+$results_per_page = 13;
 
 // Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
-// Calculate the starting limit number for the query
-$start_from = ($current_page - 1) * $results_per_page;
+// Calculate the skip limit number for pagination
+$skip = ($current_page - 1) * $results_per_page;
 
 // Initialize sort order and search keyword
 $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'DESC';
 $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
 
-// SQL query to fetch constructors and circuits with the most race wins
-$sql = "SELECT c.constructor_name, ci.circuit_name, COUNT(rs.position) AS total_wins 
-        FROM results rs 
-        INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-        INNER JOIN races r ON rs.raceId = r.raceId 
-        INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
-        WHERE rs.position = 1";
+// Build MongoDB aggregation pipeline
+$pipeline = [
+    // Match for position = 1
+    ['$match' => ['position' => 1]],
 
-// Add search condition
+    // Join constructors collection
+    [
+        '$lookup' => [
+            'from' => 'constructors',
+            'localField' => 'constructorId',
+            'foreignField' => 'constructor_id',
+            'as' => 'constructor_info'
+        ]
+    ],
+    ['$unwind' => '$constructor_info'],
+
+    // Join races collection
+    [
+        '$lookup' => [
+            'from' => 'races',
+            'localField' => 'raceId',
+            'foreignField' => 'raceId',
+            'as' => 'race_info'
+        ]
+    ],
+    ['$unwind' => '$race_info'],
+
+    // Join circuits collection
+    [
+        '$lookup' => [
+            'from' => 'circuits',
+            'localField' => 'race_info.circuit_id',
+            'foreignField' => 'circuit_id',
+            'as' => 'circuit_info'
+        ]
+    ],
+    ['$unwind' => '$circuit_info']
+];
+
+// Add search filter if a keyword is present
 if (!empty($search_keyword)) {
-    $sql .= " AND (c.constructor_name LIKE '%$search_keyword%' OR 
-                     EXISTS (SELECT 1 FROM drivers d WHERE d.driverId = rs.driverId AND d.forename LIKE '%$search_keyword%'))";
+    $pipeline[] = [
+        '$match' => [
+            '$or' => [
+                ['constructor_info.constructor_name' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['circuit_info.circuit_name' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+            ]
+        ]
+    ];
 }
 
-$sql .= " GROUP BY c.constructor_name, ci.circuit_name 
-          ORDER BY total_wins $sort_order 
-          LIMIT $start_from, $results_per_page";
+// Group by constructor and circuit name and count wins
+$pipeline[] = [
+    '$group' => [
+        '_id' => [
+            'constructor_name' => '$constructor_info.constructor_name',
+            'circuit_name' => '$circuit_info.circuit_name'
+        ],
+        'total_wins' => ['$sum' => 1]
+    ]
+];
 
-$result = $conn->query($sql);
+// Sort based on total wins
+$pipeline[] = ['$sort' => ['total_wins' => ($sort_order == 'DESC' ? -1 : 1)]];
 
-// Count total wins for pagination
-$sql_total = "SELECT COUNT(DISTINCT c.constructor_id, ci.circuit_id) AS total 
-              FROM results rs 
-              INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-              INNER JOIN races r ON rs.raceId = r.raceId 
-              INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
-              WHERE rs.position = 1";
+// Skip and limit for pagination
+$pipeline[] = ['$skip' => $skip];
+$pipeline[] = ['$limit' => $results_per_page];
 
-// Add search condition for total count
+// Execute aggregation query
+$query = $db->results->aggregate($pipeline);
+$results = iterator_to_array($query);
+
+// Total count for pagination
+$total_pipeline = [
+    ['$match' => ['position' => 1]],
+
+    // Join constructors, races, and circuits collections similar to main pipeline
+    ['$lookup' => [
+        'from' => 'constructors',
+        'localField' => 'constructorId',
+        'foreignField' => 'constructor_id',
+        'as' => 'constructor_info'
+    ]],
+    ['$unwind' => '$constructor_info'],
+    ['$lookup' => [
+        'from' => 'races',
+        'localField' => 'raceId',
+        'foreignField' => 'raceId',
+        'as' => 'race_info'
+    ]],
+    ['$unwind' => '$race_info'],
+    ['$lookup' => [
+        'from' => 'circuits',
+        'localField' => 'race_info.circuit_id',
+        'foreignField' => 'circuit_id',
+        'as' => 'circuit_info'
+    ]],
+    ['$unwind' => '$circuit_info']
+];
+
+// Add search filter if a keyword is present
 if (!empty($search_keyword)) {
-    $sql_total .= " AND (c.constructor_name LIKE '%$search_keyword%' OR 
-                          EXISTS (SELECT 1 FROM drivers d WHERE d.driverId = rs.driverId AND d.forename LIKE '%$search_keyword%'))";
+    $total_pipeline[] = [
+        '$match' => [
+            '$or' => [
+                ['constructor_info.constructor_name' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['circuit_info.circuit_name' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+            ]
+        ]
+    ];
 }
 
-$total_result = $conn->query($sql_total);
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row['total'] / $results_per_page);
+// Count distinct constructors and circuits
+$total_pipeline[] = [
+    '$group' => [
+        '_id' => [
+            'constructor_id' => '$constructor_info.constructor_id',
+            'circuit_id' => '$circuit_info.circuit_id'
+        ]
+    ]
+];
+$total_pipeline[] = ['$count' => 'total'];
+
+// Execute total count pipeline
+$total_query = $db->results->aggregate($total_pipeline);
+$total_result = iterator_to_array($total_query);
+$total_pages = ceil(($total_result[0]['total'] ?? 0) / $results_per_page);
+
 ?>
+
+
 
 
 <!doctype html>
@@ -157,35 +251,34 @@ $total_pages = ceil($total_row['total'] / $results_per_page);
         </div>
     <?php endif; ?>
 
-<div class="row mt-5">
-    <table  class="table table-dark table-striped">
+    <div class="row mt-5">
+    <table class="table table-dark table-striped">
         <thead>
           <tr>
-          <th>Constructor</th>
-                                    <th>Circuit</th>
-                                    <th>Total Wins</th>
+              <th>Constructor</th>
+              <th>Circuit</th>
+              <th>Total Wins</th>
           </tr>
         </thead>
         <tbody>
         <?php
-                                if ($result->num_rows > 0) {
-                                    // Output each row of data
-                                    while($row = $result->fetch_assoc()) {
-                                        echo "<tr>";
-                                        echo "<td>" . htmlspecialchars($row['constructor_name']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['circuit_name']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['total_wins']) . "</td>";
-                                        echo "</tr>";
-                                    }
-                                } else {
-                                    echo "<tr><td colspan='3'>No data available</td></tr>";
-                                }
-                                ?>
-                            </tbody>
+            if (count($results) > 0) { // Check if there are any results
+                // Output each row of data
+                foreach ($results as $row) {
+                    echo "<tr>";
+                    echo "<td>" . htmlspecialchars($row['_id']['constructor_name']) . "</td>";
+                    echo "<td>" . htmlspecialchars($row['_id']['circuit_name']) . "</td>";
+                    echo "<td>" . htmlspecialchars($row['total_wins']) . "</td>";
+                    echo "</tr>";
+                }
+            } else {
+                echo "<tr><td colspan='3'>No data available</td></tr>";
+            }
+        ?>
         </tbody>
-      </table>
-      
+    </table>
 </div>
+
 
       <!-- Pagination Controls with Page Numbers -->
       <<div class="pagination">

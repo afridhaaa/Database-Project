@@ -7,9 +7,8 @@
 
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <!-- Custom CSS -->
+    
     <link rel="stylesheet" href="./assets/css/style.css">
     <link rel="stylesheet" href="./assets/css/login.css">
 </head>
@@ -20,8 +19,8 @@
             <div class="col-md-2 p-0 full">
                 <?php include("side.php"); ?> 
             </div>
-            <div class="col-md-10 p-0 d-flex justify-content-center align-items-center" style="height: 100vh;">
-                <div class="login-container d-flex">
+            <div class="col-md-10 p-0 d-flex justify-content-center align-items-center" style="height: 100vh;"> 
+            <div class="login-container d-flex">
                     <!-- Illustration -->
                     <div class="illustration">
                         <img src="https://img.freepik.com/free-vector/access-control-system-abstract-concept-illustration_335657-3180.jpg" alt="Login Illustration" class="img-fluid">
@@ -51,10 +50,21 @@
                             }
                         ?>
                     </div>
-                </div>
+            </div>
             </div> 
         </div> 
     </div> 
 </section>
+
+<script>
+    // Show more items when "View More" is clicked
+    document.getElementById("view-more-btn").addEventListener("click", function() {
+        var moreItems = document.getElementById("more-items");
+        var viewMoreBtn = document.getElementById("view-more-li");
+        moreItems.style.display = "block";
+        viewMoreBtn.style.display = "none";
+    });
+</script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 </body>
 </html>

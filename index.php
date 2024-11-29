@@ -33,12 +33,14 @@ $total_pages = ceil($total_constructors / $results_per_page);
 // MongoDB query to fetch top 5 drivers based on points
 $driver_collection = $db->drivers;
 $top_drivers = $driver_collection->aggregate([
-    ['$lookup' => [
-        'from' => 'driver_standings',
-        'localField' => 'driverId',
-        'foreignField' => 'driverId',
-        'as' => 'standings'
-    ]],
+    [
+        '$lookup' => [
+            'from' => 'driver_standings',
+            'localField' => 'driverId',
+            'foreignField' => 'driverId',
+            'as' => 'standings'
+        ]
+    ],
     ['$unwind' => '$standings'],
     ['$sort' => ['standings.points' => -1]],
     ['$limit' => 5],
@@ -210,7 +212,6 @@ $top_constructors = $constructor_collection->find(
             el: '.swiper-pagination', // Element for pagination
             clickable: true, // Make pagination clickable
         },
-        // Remove navigation since we don't want arrows
         navigation: false,
     });
 </script>

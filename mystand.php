@@ -1,39 +1,81 @@
 <?php
 include 'db/db.php';
-include 'process.php';
+$collection = $db->selectCollection('driver_standings');
 
 // Define how many results you want per page
 $results_per_page = 10;
 
-// Determine which page number visitor is currently on
-if (isset($_GET['page'])) {
-    $current_page = $_GET['page'];
-} else {
-    $current_page = 1;
+$current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$search_position = isset($_GET['search_position']) ? trim($_GET['search_position']) : '';
+$search_driverStandingsId = isset($_GET['search_driverStandingsId']) ? trim($_GET['search_driverStandingsId']) : '';
+$sort_order = isset($_GET['sort_order']) && $_GET['sort_order'] === 'DESC' ? -1 : 1;
+
+// Start from for pagination
+$skip = ($current_page - 1) * $results_per_page;
+
+$pipeline = [];
+
+// Add search conditions if the search bars are filled
+$match_conditions = [];
+if (!empty($search_position)) {
+    $match_conditions[] = ['position' => intval($search_position)];  // Exact match for position
+}
+if (!empty($search_driverStandingsId)) {
+    $pipeline[] = [
+        '$addFields' => [
+            'driverStandingsIdString' => ['$toString' => '$driverStandingsId']  // Convert to string
+        ]
+    ];
+    $match_conditions[] = ['driverStandingsIdString' => ['$regex' => $search_driverStandingsId, '$options' => 'i']];  // Case-insensitive regex
 }
 
-// Determine the SQL LIMIT starting number for the results on the displaying page
-$start_from = ($current_page - 1) * $results_per_page;
+// Add $match stage if there are any conditions
+if (!empty($match_conditions)) {
+    $pipeline[] = ['$match' => ['$or' => $match_conditions]];
+}
 
-// Handle sorting and search
-$sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'ASC';
-$search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
+// Include necessary fields and sort results
+$pipeline[] = [
+    '$project' => [
+        'driverStandingsId' => 1,
+        'wins' => 1,
+        'position' => 1,
+        'raceId' => 1,
+        'driverId' => 1,
+        'points' => 1
+    ]
+];
+$pipeline[] = ['$sort' => ['position' => $sort_order]];
 
-// Construct SQL query for fetching driver standings with sorting and search
-$sql = "SELECT driverStandingsId, raceId, driverId, points, position, wins 
-        FROM driver_standings 
-        WHERE driverId LIKE '%$search_keyword%' 
-        ORDER BY position $sort_order 
-        LIMIT $start_from, $results_per_page";
-$result = $conn->query($sql);
+// Add pagination stages
+$pipeline[] = ['$skip' => $skip];
+$pipeline[] = ['$limit' => $results_per_page];
 
-// Find out the total number of pages
-$total_sql = "SELECT COUNT(*) AS total 
-              FROM driver_standings 
-              WHERE driverId LIKE '%$search_keyword%'";
-        $total_result = $conn->query($total_sql);
-        $total_row = $total_result->fetch_assoc();
-        $total_pages = ceil($total_row["total"] / $results_per_page);
+
+// Fetch data using aggregation pipeline
+$data = iterator_to_array($collection->aggregate($pipeline), false);
+
+if (!empty($search_term)) {
+    $pipeline[] = [
+        '$addFields' => [
+            'driverStandingsIdString' => ['$toString' => '$driverStandingsId']
+        ]
+    ];
+    $pipeline[] = [
+        '$match' => [
+            '$or' => [
+                ['driverStandingsIdString' => ['$regex' => $search_term, '$options' => 'i']], // Case-insensitive regex on string
+                ['position' => intval($search_term)]  // Exact numeric match
+            ]
+        ]
+    ];
+}
+
+$total_pipeline[] = ['$count' => 'total'];
+
+$total_data = iterator_to_array($collection->aggregate($total_pipeline), false);
+$total_count = $total_data[0]['total'] ?? 0;
+$total_pages = ceil($total_count / $results_per_page);
 ?>
 
 <!doctype html>
@@ -52,7 +94,7 @@ $total_sql = "SELECT COUNT(*) AS total
             <div class="row">
                 <div class="col-md-2">
                     <div class="heading">
-                        <a href="index.php"><h4>Formula1</h4></a>
+                        <a href="index.php"> <!-- <h4>Formula1</h4></a> -->
                     </div>
                 </div>
             </div>
@@ -69,6 +111,9 @@ $total_sql = "SELECT COUNT(*) AS total
                     <div class="submain">
                         <div class="container py-3">
                             <div class="row">
+                                <div class="back-button" style="margin: 20px;">
+                                    <a href="index.php" class="button-8">← Back to Home</a>
+                                </div>
                                 <div class="head">
                                     <h2>Driver Standings</h2>
                                 </div>
@@ -76,31 +121,37 @@ $total_sql = "SELECT COUNT(*) AS total
 
                             <!-- Sort and Search Form -->
                             <div class="custom-filter-container my-5">
-                                <form method="GET" action="mystand.php" class="custom-filter-form">
-                                    <!-- Sort Dropdown -->
-                                    <div class="custom-form-group">
-                                        <label for="sort_order" class="custom-label">Sort by Position:</label>
-                                        <select name="sort_order" id="sort_order" class="custom-form-control" onchange="this.form.submit()">
-                                            <option value="ASC" <?php if ($sort_order == 'ASC') echo 'selected'; ?>>Ascending</option>
-                                            <option value="DESC" <?php if ($sort_order == 'DESC') echo 'selected'; ?>>Descending</option>
-                                        </select>
-                                    </div>
+                            <form method="GET" action="mystand.php" class="custom-filter-form">
+                            <!-- Search Bar for Position -->
+                                <div class="custom-form-group">
+                                    <label for="search_position" class="custom-label">Search by Position:</label>
+                                    <input type="text" name="search_position" class="custom-form-control" placeholder="Search by Position" value="<?php echo htmlspecialchars($_GET['search_position'] ?? ''); ?>">
+                                </div>
 
-                                    <!-- Search Bar -->
-                                    <div class="custom-form-group">
-                                        <label for="search" class="custom-label">Search by Driver ID or Position:</label>
-                                        <input type="text" name="search" class="custom-form-control custom-search-bar" placeholder="Search Drivers" value="<?php echo htmlspecialchars($search_keyword); ?>">
-                                    </div>
+                                <!-- Search Bar for Driver Standings ID -->
+                                <div class="custom-form-group">
+                                    <label for="search_driverStandingsId" class="custom-label">Search by Driver Standings ID:</label>
+                                    <input type="text" name="search_driverStandingsId" class="custom-form-control" placeholder="Search by Driver Standings ID" value="<?php echo htmlspecialchars($_GET['search_driverStandingsId'] ?? ''); ?>">
+                                </div>
 
-                                    <!-- Search Button -->
-                                    <div class="custom-form-group">
-                                        <button type="submit" class="custom-btn custom-btn-primary">Search</button>
-                                    </div>
-                                </form>
+                                <!-- Sort Dropdown -->
+                                <div class="custom-form-group">
+                                    <label for="sort_order" class="custom-label">Sort by Position:</label>
+                                    <select name="sort_order" id="sort_order" class="custom-form-control" onchange="this.form.submit()">
+                                        <option value="ASC" <?php if ($sort_order == 1) echo 'selected'; ?>>Ascending</option>
+                                        <option value="DESC" <?php if ($sort_order == -1) echo 'selected'; ?>>Descending</option>
+                                    </select>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <div class="custom-form-group">
+                                    <button type="submit" class="custom-btn custom-btn-primary">Search</button>
+                                </div>
+                            </form>
                             </div>
 
                             <!-- Clear Search Button: Show only when search is applied -->
-                            <?php if (!empty($search_keyword)) : ?>
+                            <?php if (!empty($search_position) || !empty($search_driverStandingsId)) : ?>
                                 <div style="margin-bottom: 20px; margin-left: 30px;">
                                     <a href="mystand.php" class="custom-btn custom-btn-clear">Clear Search</a>
                                 </div>
@@ -110,37 +161,32 @@ $total_sql = "SELECT COUNT(*) AS total
                                 <table class="table table-dark table-striped">
                                     <thead>
                                         <tr>
-                                            <th scope="col">Driver Standings ID</th>
-                                            <th scope="col">Race ID</th>
-                                            <th scope="col">Driver ID</th>
-                                            <th scope="col">Points</th>
-                                            <th scope="col">Position</th>
-                                            <th scope="col">Wins</th>
+                                            <th>Driver Standings ID</th>
+                                            <th>Race ID</th>
+                                            <th>Driver ID</th>
+                                            <th>Points</th>
+                                            <th>Position</th>
+                                            <th>Wins</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                    <?php
-                                        if ($result->num_rows > 0) {
-                                            while($row = $result->fetch_assoc()) {
-                                                echo "<tr>";
-                                                echo "<td>" . $row['driverStandingsId'] . "</td>";
-                                                echo "<td>" . $row['raceId'] . "</td>";
-                                                echo "<td>" . $row['driverId'] . "</td>";
-                                                echo "<td>" . $row['points'] . "</td>";
-                                                echo "<td>" . $row['position'] . "</td>";
-                                                echo "<td>" . $row['wins'] . "</td>";
-                                                echo "</tr>";
-                                            }
-                                        } else {
-                                            echo "<tr><td colspan='7'>No data available</td></tr>";
-                                        }
-                                    ?>
+                                        <?php foreach ($data as $row): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($row['driverStandingsId']); ?></td>
+                                                <td><?php echo htmlspecialchars($row['raceId']); ?></td>
+                                                <td><?php echo htmlspecialchars($row['driverId']); ?></td>
+                                                <td><?php echo htmlspecialchars($row['points']); ?></td>
+                                                <td><?php echo htmlspecialchars($row['position']); ?></td>
+                                                <td><?php echo htmlspecialchars($row['wins']); ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
                                     </tbody>
                                 </table>
                             </div>
 
-                            <!-- Pagination Controls -->
-                            <div class="pagination">
+                            
+        <!-- Pagination Controls -->
+        <div class="pagination">
     <?php
     // Ensure $current_page is an integer
     $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
@@ -176,15 +222,28 @@ $total_sql = "SELECT COUNT(*) AS total
     }
     ?>
 </div>
-
-
-
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
+    <footer>
+        <p style="background-color: #15151E; color: white;">&copy; 2024 Formula Vault. All rights reserved.</p>
+    </footer>
+            </div>
+            </div>
+
+
+   <script>
+    // Show more items when "View More" is clicked
+    document.getElementById("view-more-btn").addEventListener("click", function() {
+        var moreItems = document.getElementById("more-items");
+        var viewMoreBtn = document.getElementById("view-more-li");
+        moreItems.style.display = "block";
+        viewMoreBtn.style.display = "none";
+    });
+</script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

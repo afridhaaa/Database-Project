@@ -366,7 +366,6 @@ button.dropdown-item {
     margin: 20px 0;
     display: flex;
     justify-content: center;
-  
 }
 
 .pagination a {
@@ -386,24 +385,14 @@ button.dropdown-item {
     color: white;
 }
 
-.pagination .current-page {
-    margin: 5px;
-    padding: 10px 15px;
-    font-weight: bold;
-    background-color: #007bff;
+.pagination .current-page a {
+    background-color: #007bff !important;
     color: white;
-    border: 1px solid #007bff;
+    font-weight: bold;
+    border: 1px solid #007bff !important;
     border-radius: 5px;
-    font-size: 0.9rem;
 }
 
-.pagination .disabled {
-    margin: 0px;
-    padding: 10px 9px;
-    font-weight: bold;
-    color: grey;
-    cursor: not-allowed;
-}
 
 /* Responsive pagination */
 @media (max-width: 600px) {

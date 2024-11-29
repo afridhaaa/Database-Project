@@ -5,57 +5,96 @@ include 'db/db.php';  // Include your database connection
 // Set the number of results per page
 $results_per_page = 10;
 
-// Get sort order from URL
-$sort_order = isset($_GET['sort_order']) && in_array($_GET['sort_order'], ['ASC', 'DESC']) ? $_GET['sort_order'] : 'DESC';
-
-// Get search keyword from URL
+// Initialize variables for sorting and searching
+$sort_order = isset($_GET['sort_order']) && $_GET['sort_order'] === 'ASC' ? 1 : -1;
 $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
-
-// Modify the SQL query for total wins, search by driver name, and sorting
-$sql_total = "SELECT COUNT(*) AS total 
-              FROM (SELECT d.forename, ci.circuit_name, COUNT(rs.position) AS total_wins 
-                    FROM results rs 
-                    INNER JOIN drivers d ON rs.driverId = d.driverId 
-                    INNER JOIN races r ON rs.raceId = r.raceId 
-                    INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
-                    WHERE rs.position = 1 ";
-
-if (!empty($search_keyword)) {
-    $sql_total .= "AND d.forename LIKE '%$search_keyword%' ";
-}
-
-$sql_total .= "GROUP BY d.forename, ci.circuit_name) AS subquery";
-
-$total_result = $conn->query($sql_total);
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row['total'] / $results_per_page);
 
 // Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-
-// Calculate the starting limit number for the query
 $start_from = ($current_page - 1) * $results_per_page;
 
-// Main SQL query to fetch driver names, circuit names, and total wins with limit, search, and sort
-$sql = "SELECT d.forename, ci.circuit_name, COUNT(rs.position) AS total_wins 
-        FROM results rs 
-        INNER JOIN drivers d ON rs.driverId = d.driverId 
-        INNER JOIN races r ON rs.raceId = r.raceId 
-        INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
-        WHERE rs.position = 1 ";
+// Aggregation pipeline for counting total records
+$pipeline_count = [
+    ['$lookup' => [
+        'from' => 'drivers',
+        'localField' => 'driverId',
+        'foreignField' => 'driverId',
+        'as' => 'driver_details'
+    ]],
+    ['$lookup' => [
+        'from' => 'races',
+        'localField' => 'raceId',
+        'foreignField' => 'raceId',
+        'as' => 'race_details'
+    ]],
+    ['$lookup' => [
+        'from' => 'circuits',
+        'localField' => 'race_details.circuit_id',
+        'foreignField' => 'circuit_id',
+        'as' => 'circuit_details'
+    ]],
+    ['$unwind' => '$driver_details'],
+    ['$unwind' => '$race_details'],
+    ['$unwind' => '$circuit_details'],
+    ['$match' => [
+        'position' => 1,
+        'driver_details.forename' => new MongoDB\BSON\Regex($search_keyword, 'i')
+    ]],
+    ['$group' => [
+        '_id' => [
+            'forename' => '$driver_details.forename',
+            'circuit_name' => '$circuit_details.circuit_name'
+        ],
+        'total_wins' => ['$sum' => 1]
+    ]],
+    ['$count' => 'total']
+];
 
-if (!empty($search_keyword)) {
-    $sql .= "AND d.forename LIKE '%$search_keyword%' ";
-}
+$total_result = $db->results->aggregate($pipeline_count)->toArray();
+$total_count = $total_result[0]['total'] ?? 0;
+$total_pages = ceil($total_count / $results_per_page);
 
-$sql .= "GROUP BY d.forename, ci.circuit_name 
-        ORDER BY total_wins $sort_order 
-        LIMIT $start_from, $results_per_page";
+// Aggregation pipeline to fetch paginated data
+$pipeline = [
+    ['$lookup' => [
+        'from' => 'drivers',
+        'localField' => 'driverId',
+        'foreignField' => 'driverId',
+        'as' => 'driver_details'
+    ]],
+    ['$lookup' => [
+        'from' => 'races',
+        'localField' => 'raceId',
+        'foreignField' => 'raceId',
+        'as' => 'race_details'
+    ]],
+    ['$lookup' => [
+        'from' => 'circuits',
+        'localField' => 'race_details.circuit_id',
+        'foreignField' => 'circuit_id',
+        'as' => 'circuit_details'
+    ]],
+    ['$unwind' => '$driver_details'],
+    ['$unwind' => '$race_details'],
+    ['$unwind' => '$circuit_details'],
+    ['$match' => [
+        'position' => 1,
+        'driver_details.forename' => new MongoDB\BSON\Regex($search_keyword, 'i')
+    ]],
+    ['$group' => [
+        '_id' => [
+            'forename' => '$driver_details.forename',
+            'circuit_name' => '$circuit_details.circuit_name'
+        ],
+        'total_wins' => ['$sum' => 1]
+    ]],
+    ['$sort' => ['total_wins' => $sort_order]],
+    ['$skip' => $start_from],
+    ['$limit' => $results_per_page]
+];
 
-$result = $conn->query($sql);
-
+$result = $db->results->aggregate($pipeline);
 ?>
-
 
 <!doctype html>
 <html lang="en">
@@ -74,7 +113,7 @@ $result = $conn->query($sql);
         <div class="row">
             <div class="col-md-2">
                 <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
+                  <a href="index.php">  <!-- <h4>Formula1</h4></a> -->
                 </div>
             </div>
         </div>
@@ -131,35 +170,28 @@ $result = $conn->query($sql);
         </div>
     <?php endif; ?>     
 
-<div class="row mt-5">
-    <table  class="table table-dark table-striped">
-        <thead>
-          <tr>
-          <th>Driver</th>
-                                    <th>Circuit Name</th>
-                                    <th>Total Wins</th>
-          </tr>
-        </thead>
-        <tbody>
-        <?php
-                                if ($result->num_rows > 0) {
-                                    // Output each row of data
-                                    while($row = $result->fetch_assoc()) {
-                                        echo "<tr>";
-                                        echo "<td>" . $row['forename'] . "</td>";
-                                        echo "<td>" . $row['circuit_name'] . "</td>";
-                                        echo "<td>" . $row['total_wins'] . "</td>";
-                                        echo "</tr>";
-                                    }
-                                } else {
-                                    echo "<tr><td colspan='3'>No data available</td></tr>";
-                                }
-                                ?>
-                            </tbody>
-        </tbody>
-      </table>
-      
-</div>
+                        <div class="row mt-5">
+                              <table class="table table-dark table-striped">
+                                  <thead>
+                                      <tr>
+                                          <th>Driver</th>
+                                          <th>Circuit Name</th>
+                                          <th>Total Wins</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      <?php
+                                      foreach ($result as $row) {
+                                          echo "<tr>";
+                                          echo "<td>" . htmlspecialchars($row['_id']['forename']) . "</td>";
+                                          echo "<td>" . htmlspecialchars($row['_id']['circuit_name']) . "</td>";
+                                          echo "<td>" . htmlspecialchars($row['total_wins']) . "</td>";
+                                          echo "</tr>";
+                                      }
+                                      ?>
+                                  </tbody>
+                              </table>
+                        </div>
 
      <!-- Pagination Controls -->
      <div class="pagination">

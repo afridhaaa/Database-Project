@@ -4,47 +4,133 @@ include 'db/db.php';  // Include your database connection
 // Set the number of results per page
 $results_per_page = 10;
 
-// Determine the total number of records for pagination
-$sql_total = "SELECT COUNT(*) AS total 
-              FROM (SELECT d.forename, c.constructor_name, ci.circuit_name, SUM(rs.points) AS total_points 
-                    FROM results rs 
-                    INNER JOIN drivers d ON rs.driverId = d.driverId 
-                    INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-                    INNER JOIN races r ON rs.raceId = r.raceId 
-                    INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
-                    GROUP BY d.forename, c.constructor_name, ci.circuit_name 
-                    HAVING total_points > 50) AS subquery";
-
-$total_result = $conn->query($sql_total);
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row['total'] / $results_per_page);
-
-
 // Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
-// Calculate the starting limit number for the query
-$start_from = ($current_page - 1) * $results_per_page;
+// Calculate the skip for pagination
+$skip = ($current_page - 1) * $results_per_page;
 
+// MongoDB aggregation pipeline
+$pipeline = [
+    [
+        '$lookup' => [
+            'from' => 'drivers',
+            'localField' => 'driverId',
+            'foreignField' => 'driverId',
+            'as' => 'driver_info'
+        ]
+    ],
+    ['$unwind' => '$driver_info'],
+    [
+        '$lookup' => [
+            'from' => 'constructors',
+            'localField' => 'constructorId',
+            'foreignField' => 'constructor_id',
+            'as' => 'constructor_info'
+        ]
+    ],
+    ['$unwind' => '$constructor_info'],
+    [
+        '$lookup' => [
+            'from' => 'races',
+            'localField' => 'raceId',
+            'foreignField' => 'raceId',
+            'as' => 'race_info'
+        ]
+    ],
+    ['$unwind' => '$race_info'],
+    [
+        '$lookup' => [
+            'from' => 'circuits',
+            'localField' => 'race_info.circuit_id',
+            'foreignField' => 'circuit_id',
+            'as' => 'circuit_info'
+        ]
+    ],
+    ['$unwind' => '$circuit_info'],
+    [
+        '$group' => [
+            '_id' => [
+                'forename' => '$driver_info.forename',
+                'constructor_name' => '$constructor_info.constructor_name',
+                'circuit_name' => '$circuit_info.circuit_name'
+            ],
+            'total_points' => ['$sum' => '$points']
+        ]
+    ],
+    [
+        '$match' => [
+            'total_points' => ['$gt' => 50]
+        ]
+    ],
+    ['$sort' => ['total_points' => -1]],
+    ['$skip' => $skip],
+    ['$limit' => $results_per_page]
+];
 
-// SQL query to fetch driver name, constructor name, circuit name, and total points with limit
-$sql = "SELECT d.forename, c.constructor_name, ci.circuit_name, SUM(rs.points) AS total_points 
-        FROM results rs 
-        INNER JOIN drivers d ON rs.driverId = d.driverId 
-        INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-        INNER JOIN races r ON rs.raceId = r.raceId 
-        INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
-        GROUP BY d.forename, c.constructor_name, ci.circuit_name 
-        HAVING total_points > 50 
-        ORDER BY total_points DESC 
-        LIMIT $start_from, $results_per_page";
+// Execute the query
+$results = $db->results->aggregate($pipeline)->toArray();
 
-// Execute query and print any SQL errors
-$result = $conn->query($sql) or die("SQL Error: " . $conn->error);
+// Calculate total records for pagination
+$total_pipeline = [
+    [
+        '$lookup' => [
+            'from' => 'drivers',
+            'localField' => 'driverId',
+            'foreignField' => 'driverId',
+            'as' => 'driver_info'
+        ]
+    ],
+    ['$unwind' => '$driver_info'],
+    [
+        '$lookup' => [
+            'from' => 'constructors',
+            'localField' => 'constructorId',
+            'foreignField' => 'constructor_id',
+            'as' => 'constructor_info'
+        ]
+    ],
+    ['$unwind' => '$constructor_info'],
+    [
+        '$lookup' => [
+            'from' => 'races',
+            'localField' => 'raceId',
+            'foreignField' => 'raceId',
+            'as' => 'race_info'
+        ]
+    ],
+    ['$unwind' => '$race_info'],
+    [
+        '$lookup' => [
+            'from' => 'circuits',
+            'localField' => 'race_info.circuit_id',
+            'foreignField' => 'circuit_id',
+            'as' => 'circuit_info'
+        ]
+    ],
+    ['$unwind' => '$circuit_info'],
+    [
+        '$group' => [
+            '_id' => [
+                'forename' => '$driver_info.forename',
+                'constructor_name' => '$constructor_info.constructor_name',
+                'circuit_name' => '$circuit_info.circuit_name'
+            ],
+            'total_points' => ['$sum' => '$points']
+        ]
+    ],
+    [
+        '$match' => [
+            'total_points' => ['$gt' => 50]
+        ]
+    ],
+    ['$count' => 'total']
+];
+
+$total_count_result = $db->results->aggregate($total_pipeline)->toArray();
+$total_records = $total_count_result[0]['total'] ?? 0;
+$total_pages = ceil($total_records / $results_per_page);
 ?>
-
-
-
 
 
 <!doctype html>
@@ -64,7 +150,7 @@ $result = $conn->query($sql) or die("SQL Error: " . $conn->error);
         <div class="row">
             <div class="col-md-2">
                 <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
+                  <a href="index.php">  <!-- <h4>Formula1</h4></a> -->
                 </div>
             </div>
         </div>
@@ -91,87 +177,62 @@ $result = $conn->query($sql) or die("SQL Error: " . $conn->error);
                         
                         
 
-<div class="row mt-5">
-    <table  class="table table-dark table-striped">
-        <thead>
-          <tr>
-          <th>Driver Name</th>
-                                    <th>Constructor Name</th>
-                                    <th>Circuit Name</th>
-                                    <th>Total Points</th>
-          </tr>
-        </thead>
-        <tbody>
-        <?php
-                                if ($result->num_rows > 0) {
-                                    // Output each row of data
-                                    while($row = $result->fetch_assoc()) {
-                                        echo "<tr>";
-                                        echo "<td>" . $row['forename'] . "</td>";
-                                        echo "<td>" . $row['constructor_name'] . "</td>";
-                                        echo "<td>" . $row['circuit_name'] . "</td>";
-                                        echo "<td>" . $row['total_points'] . "</td>";
-                                        echo "</tr>";
-                                    }
-                                } else {
-                                    echo "<tr><td colspan='4'>No data available</td></tr>";
-                                }
-                                ?>
-                            </tbody>
-        </tbody>
-      </table>
-      
-</div>
+                        <div class="row mt-5">
+                               <table class="table table-dark table-striped">
+                                   <thead>
+                                       <tr>
+                                           <th>Driver Name</th>
+                                           <th>Constructor Name</th>
+                                           <th>Circuit Name</th>
+                                           <th>Total Points</th>
+                                       </tr>
+                                   </thead>
+                                   <tbody>
+                                       <?php if (empty($results)) : ?>
+                                           <tr><td colspan="4" style="text-align:center;">No data available</td></tr>
+                                       <?php else : ?>
+                                           <?php foreach ($results as $row): ?>
+                                               <tr>
+                                                   <td><?php echo htmlspecialchars($row['_id']['forename']); ?></td>
+                                                   <td><?php echo htmlspecialchars($row['_id']['constructor_name']); ?></td>
+                                                   <td><?php echo htmlspecialchars($row['_id']['circuit_name']); ?></td>
+                                                   <td><?php echo htmlspecialchars($row['total_points']); ?></td>
+                                               </tr>
+                                           <?php endforeach; ?>
+                                       <?php endif; ?>
+                                   </tbody>
+                               </table>
+                           </div>
 
-    <!-- Pagination Controls (Previous and Next only) -->
+    <!-- Pagination Controls -->
     <div class="pagination">
-    <?php
-    // Ensure $current_page is always an integer
-    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
-        ? intval($_GET['page']) 
-        : 1;
+                               <?php
+                               $current_page = max(1, min($current_page, $total_pages));
+                               $links_to_show = 5;
+                               $start_page = max(1, $current_page - floor($links_to_show / 2));
+                               $end_page = min($total_pages, $start_page + $links_to_show - 1);
 
-    // Ensure $total_pages is a valid integer
-    $total_pages = isset($total_pages) && $total_pages > 0 
-        ? intval($total_pages) 
-        : 1;
+                               if ($current_page > 1) {
+                                   echo '<a href="retrievedrivers.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
+                               } else {
+                                   echo '<span class="disabled">Previous</span>';
+                               }
 
-    // Set how many page links to show at once
-    $links_to_show = 5;
+                               for ($i = $start_page; $i <= $end_page; $i++) {
+                                   if ($i == $current_page) {
+                                       echo '<a href="#" class="current-page">' . $i . '</a>';
+                                   } else {
+                                       echo '<a href="retrievedrivers.php?page=' . $i . '">' . $i . '</a>';
+                                   }
+                               }
 
-    // Calculate start and end pages for the pagination range
-    $start_page = max(1, $current_page - floor($links_to_show / 2));
-    $end_page = min($total_pages, $start_page + $links_to_show - 1);
-
-    // Adjust start page if there are fewer pages on the right side
-    if ($end_page - $start_page + 1 < $links_to_show) {
-        $start_page = max(1, $end_page - $links_to_show + 1);
-    }
-
-    // Display "Previous" button
-    if ($current_page > 1) {
-        echo '<a href="retrievedrivers.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
-    } else {
-        echo '<span class="disabled">Previous</span>';
-    }
-
-    // Display page numbers
-    for ($i = $start_page; $i <= $end_page; $i++) {
-        if ($i == $current_page) {
-            echo '<a href="#" class="current-page">' . $i . '</a>'; // Active page
-        } else {
-            echo '<a href="retrievedrivers.php?page=' . $i . '">' . $i . '</a>';
-        }
-    }
-
-    // Display "Next" button
-    if ($current_page < $total_pages) {
-        echo '<a href="retrievedrivers.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
-    } else {
-        echo '<span class="disabled">Next</span>';
-    }
-    ?>
-</div>
+                               if ($current_page < $total_pages) {
+                                   echo '<a href="retrievedrivers.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
+                               } else {
+                                   echo '<span class="disabled">Next</span>';
+                               }
+                               ?>
+                           </div>
 
                         
                     </div>

@@ -4,48 +4,128 @@ include 'db/db.php';  // Include your database connection
 // Set the number of results per page
 $results_per_page = 10;
 
-// Initialize variables for sorting and searching
-$sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'DESC';
-$search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
-
-// Determine the total number of records for pagination
-$sql_total = "SELECT COUNT(*) AS total 
-              FROM results rs 
-              INNER JOIN drivers d ON rs.driverId = d.driverId 
-              INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-              INNER JOIN races r ON rs.raceId = r.raceId 
-              WHERE c.constructor_id IN (SELECT constructorId FROM results WHERE position <= 3) 
-              AND (d.forename LIKE ? OR c.constructor_name LIKE ?)";
-$stmt = $conn->prepare($sql_total);
-$like_keyword = "%" . $search_keyword . "%";
-$stmt->bind_param("ss", $like_keyword, $like_keyword);
-$stmt->execute();
-$total_result = $stmt->get_result();
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row['total'] / $results_per_page);
-
 // Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
-// Calculate the starting limit number for the query
-$start_from = ($current_page - 1) * $results_per_page;
+// Calculate the skip limit number for pagination
+$skip = ($current_page - 1) * $results_per_page;
 
-// SQL query to fetch driver, constructor, race, and fastest lap speed data with limit
-$sql = "SELECT d.forename, c.constructor_name, r.name AS race_name, rs.fastestLapSpeed 
-        FROM results rs 
-        INNER JOIN drivers d ON rs.driverId = d.driverId 
-        INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-        INNER JOIN races r ON rs.raceId = r.raceId 
-        WHERE c.constructor_id IN (SELECT constructorId FROM results WHERE position <= 3) 
-        AND (d.forename LIKE ? OR c.constructor_name LIKE ?)
-        ORDER BY rs.fastestLapSpeed $sort_order 
-        LIMIT ?, ?";
-$stmt = $conn->prepare($sql);
-$stmt->bind_param("ssii", $like_keyword, $like_keyword, $start_from, $results_per_page);
-$stmt->execute();
-$result = $stmt->get_result();
+// Initialize sort order and search keyword
+$sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'DESC';
+$search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
+
+// Build MongoDB aggregation pipeline
+$pipeline = [
+    // Join results with drivers, constructors, and races
+    [
+        '$lookup' => [
+            'from' => 'drivers',
+            'localField' => 'driverId',
+            'foreignField' => 'driverId',
+            'as' => 'driver_info'
+        ]
+    ],
+    ['$unwind' => '$driver_info'], // Unwind driver info
+
+    [
+        '$lookup' => [
+            'from' => 'constructors',
+            'localField' => 'constructorId',
+            'foreignField' => 'constructor_id',
+            'as' => 'constructor_info'
+        ]
+    ],
+    ['$unwind' => '$constructor_info'], // Unwind constructor info
+
+    [
+        '$lookup' => [
+            'from' => 'races',
+            'localField' => 'raceId',
+            'foreignField' => 'raceId',
+            'as' => 'race_info'
+        ]
+    ],
+    ['$unwind' => '$race_info'], // Unwind race info
+
+    // Add search filter if a keyword is present
+    [
+        '$match' => [
+            '$or' => [
+                ['driver_info.forename' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['constructor_info.constructor_name' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+            ]
+        ]
+    ],
+
+    // Filter to only include positions <= 3
+    [
+        '$match' => [
+            'position' => ['$lte' => 3]
+        ]
+    ],
+
+    // Sort based on fastest lap speed
+    ['$sort' => ['fastestLapSpeed' => ($sort_order == 'DESC' ? -1 : 1)]],
+
+    // Skip and limit for pagination
+    ['$skip' => $skip],
+    ['$limit' => $results_per_page]
+];
+
+// Execute aggregation query
+$query = $db->results->aggregate($pipeline);
+$results = iterator_to_array($query);
+
+// Total count for pagination
+$total_pipeline = [
+    ['$match' => ['position' => ['$lte' => 3]]],
+    [
+        '$lookup' => [
+            'from' => 'drivers',
+            'localField' => 'driverId',
+            'foreignField' => 'driverId',
+            'as' => 'driver_info'
+        ]
+    ],
+    ['$unwind' => '$driver_info'],
+    [
+        '$lookup' => [
+            'from' => 'constructors',
+            'localField' => 'constructorId',
+            'foreignField' => 'constructor_id',
+            'as' => 'constructor_info'
+        ]
+    ],
+    ['$unwind' => '$constructor_info'],
+    [
+        '$lookup' => [
+            'from' => 'races',
+            'localField' => 'raceId',
+            'foreignField' => 'raceId',
+            'as' => 'race_info'
+        ]
+    ],
+    ['$unwind' => '$race_info']
+];
+
+// Add search filter if a keyword is present
+if (!empty($search_keyword)) {
+    $total_pipeline[] = [
+        '$match' => [
+            '$or' => [
+                ['driver_info.forename' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['constructor_info.constructor_name' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+            ]
+        ]
+    ];
+}
+
+// Execute the total count query for pagination
+$total_query = $db->results->aggregate($total_pipeline);
+$total_result = iterator_to_array($total_query);
+$total_rows = count($total_result);
+$total_pages = ceil($total_rows / $results_per_page);
 ?>
-
 
 <!doctype html>
 <html lang="en">
@@ -56,17 +136,11 @@ $result = $stmt->get_result();
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />  
     <link rel="stylesheet" href="./assets/css/style.css">
-   
 </head>
   <body>
    <div class="topbar">
     <div class="container-fluid">
         <div class="row">
-            <div class="col-md-2">
-                <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
-                </div>
-            </div>
         </div>
     </div>
    </div>
@@ -121,120 +195,54 @@ $result = $stmt->get_result();
         <thead>
           <tr>
           <th>Driver Name</th>
-                                    <th>Constructor Name</th>
-                                    <th>Race Name</th>
-                                    <th>Fastest Lap Speed (km/h)</th>
+          <th>Constructor Name</th>
+          <th>Race Name</th>
+          <th>Fastest Lap Speed (km/h)</th>
           </tr>
         </thead>
         <tbody>
         <?php
-                                if ($result->num_rows > 0) {
-                                    while($row = $result->fetch_assoc()) {
-                                        echo "<tr>";
-                                        echo "<td>" . htmlspecialchars($row['forename']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['constructor_name']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['race_name']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['fastestLapSpeed']) . " km/h</td>";
-                                        echo "</tr>";
-                                    }
-                                } else {
-                                    echo "<tr><td colspan='4'>No data available</td></tr>";
-                                }
-                                ?>
-                            </tbody>
-        </tbody>
-      </table>
-      
-      <div class="pagination">
+        if (count($results) > 0) {
+            foreach($results as $row) {
+                echo "<tr>";
+                echo "<td>" . htmlspecialchars($row['driver_info']['forename']) . " " . htmlspecialchars($row['driver_info']['surname']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['constructor_info']['constructor_name']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['race_info']['name']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['fastestLapSpeed']) . " km/h</td>";
+                echo "</tr>";
+            }
+        } else {
+            echo "<tr><td colspan='4'>No data available</td></tr>";
+        }
+        ?>
+      </tbody>
+    </table>
+
+    <div class="pagination">
     <?php
     // Ensure $current_page is always an integer
     $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
         ? intval($_GET['page']) 
         : 1;
-
-    // Ensure $total_pages is always an integer and greater than zero
-    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
-        ? intval($total_pages) 
-        : 1;
-
-    // Ensure search and sort parameters have default values
-    $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
-    $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'asc';
-
-    // Define how many page links to display at once
-    $total_display_pages = 10;
-
-    // Display "Previous" button
+    
+    // Display previous page link
     if ($current_page > 1) {
-        echo '<a href="dwithfast.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
-    } else {
-        echo '<span class="disabled">Previous</span>';
+        echo "<a href='dwithfast.php?page=" . ($current_page - 1) . "&search=" . htmlspecialchars($search_keyword) . "&sort_order=" . $sort_order . "' class='prev-page'>&laquo; Previous</a>";
     }
-
-    // Show the first page link, always
-    if ($start_page > 2) {
-        echo '<a href="dwithfast.php?page=1&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">1</a>';
-        echo '<span class="disabled">...</span>'; // Ellipsis for skipped pages
+    
+    // Display page numbers
+    for ($page = 1; $page <= $total_pages; $page++) {
+        echo "<a href='dwithfast.php?page=$page&search=" . htmlspecialchars($search_keyword) . "&sort_order=$sort_order' class='page-number'>$page</a>";
     }
-
-    // Calculate start and end pages for pagination
-    $start_page = max(2, $current_page - floor($total_display_pages / 2));
-    $end_page = min($total_pages - 1, $current_page + floor($total_display_pages / 2));
-
-    // Adjust if the range is close to the beginning or end
-    if ($start_page < 2) {
-        $start_page = 2;
-        $end_page = min($total_pages - 1, $total_display_pages);
-    } elseif ($end_page >= $total_pages - 1) {
-        $end_page = $total_pages - 1;
-        $start_page = max(2, $end_page - $total_display_pages + 1);
-    }
-
-    // Display the middle range of pages
-    for ($i = $start_page; $i <= $end_page; $i++) {
-        if ($i == $current_page) {
-            echo '<span class="active-page">' . $i . '</span>'; // Highlight current page
-        } else {
-            echo '<a href="dwithfast.php?page=' . $i . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $i . '</a>';
-        }
-    }
-
-    // Show the last page link, always
-    if ($end_page < $total_pages - 1) {
-        echo '<span class="disabled">...</span>'; // Ellipsis for skipped pages
-        echo '<a href="dwithfast.php?page=' . $total_pages . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">' . $total_pages . '</a>';
-    }
-
-    // Display "Next" button
+    
+    // Display next page link
     if ($current_page < $total_pages) {
-        echo '<a href="dwithfast.php?page=' . ($current_page + 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Next</a>';
-    } else {
-        echo '<span class="disabled">Next</span>';
+        echo "<a href='dwithfast.php?page=" . ($current_page + 1) . "&search=" . htmlspecialchars($search_keyword) . "&sort_order=" . $sort_order . "' class='next-page'>Next &raquo;</a>";
     }
     ?>
 </div>
-
-
-
-                        
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-   </section>
-
-
-
-   <script>
-    // Show more items when "View More" is clicked
-    document.getElementById("view-more-btn").addEventListener("click", function() {
-        var moreItems = document.getElementById("more-items");
-        var viewMoreBtn = document.getElementById("view-more-li");
-        moreItems.style.display = "block";
-        viewMoreBtn.style.display = "none";
-    });
-</script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-  </body>
+</div>
+</section>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</body>
 </html>

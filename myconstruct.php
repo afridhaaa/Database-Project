@@ -2,11 +2,14 @@
 include 'db/db.php';
 include 'process.php';
 
+// Define the MongoDB collection
+$collection = $client->FormulaVault->constructors;
+
 // Define how many results you want per page
 $results_per_page = 10;
 
 // Determine the sorting order
-$sort_order = isset($_GET['sort_order']) && $_GET['sort_order'] == 'ASC' ? 'ASC' : 'DESC';
+$sort_order = isset($_GET['sort_order']) && strtolower($_GET['sort_order']) === 'asc' ? 1 : -1;
 
 // Handle search keyword
 $search_keyword = '';
@@ -16,28 +19,44 @@ if (isset($_GET['search'])) {
 
 // Determine which page number visitor is currently on
 if (isset($_GET['page'])) {
-    $current_page = $_GET['page'];
+    $current_page = (int) $_GET['page'];
 } else {
     $current_page = 1;
 }
 
-// Determine the SQL LIMIT starting number for the results on the displaying page
+// Calculate the skip limit for pagination
 $start_from = ($current_page - 1) * $results_per_page;
 
-// Build the SQL query with search and sort functionality
-$sql = "SELECT constructor_name, no_of_pole_positions, no_of_titles, constructor_points, nationality, url 
-        FROM constructors 
-        WHERE constructor_name LIKE '%$search_keyword%'
-        ORDER BY constructor_points $sort_order 
-        LIMIT $start_from, $results_per_page";
-$result = $conn->query($sql);
+// MongoDB aggregation pipeline
+$pipeline = [];
 
-// Find out the total number of pages
-$total_sql = "SELECT COUNT(*) AS total FROM constructors WHERE constructor_name LIKE '%$search_keyword%'";
-$total_result = $conn->query($total_sql);
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row["total"] / $results_per_page);
+// Match stage for filtering by search keyword
+if (!empty($search_keyword)) {
+    $pipeline[] = [
+        '$match' => [
+            'constructor_name' => new MongoDB\BSON\Regex($search_keyword, 'i') // Case-insensitive match
+        ]
+    ];
+}
 
+// Sort stage
+$pipeline[] = [
+    '$sort' => ['constructor_points' => $sort_order]
+];
+
+// Skip and limit for pagination
+$pipeline[] = ['$skip' => $start_from];
+$pipeline[] = ['$limit' => $results_per_page];
+
+// Execute the query
+$result = $collection->aggregate($pipeline)->toArray();
+
+// Count total documents for pagination
+$total_count = $collection->countDocuments([
+    'constructor_name' => new MongoDB\BSON\Regex($search_keyword, 'i')
+]);
+
+$total_pages = ceil($total_count / $results_per_page);
 ?>
 <!doctype html>
 <html lang="en">
@@ -102,23 +121,25 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
                 <div class="submain">
                     <div class="container py-3">
                         <div class="row">
+                        <div class="back-button" style="margin: 20px;">
+                            <a href="index.php" class="button-8">← Back to Home</a>
+                        </div>
                             <div class="head">
                                 <h2>Constructors Details</h2>
                             </div>
                         </div>
 
                         <!-- Sort and Search Form -->
-                        <div class="custom-filter-container my-5">
-                            <form method="GET" action="myconstruct.php" class="custom-filter-form">
-                                <!-- Sort Dropdown -->
-                                <div class="custom-form-group">
-                                    <label for="sort_order" class="custom-label">Sort by Points:</label>
-                                    <select name="sort_order" id="sort_order" class="custom-form-control" onchange="this.form.submit()">
-                                        <option value="DESC" <?php if ($sort_order == 'DESC') echo 'selected'; ?>>Most to Least</option>
-                                        <option value="ASC" <?php if ($sort_order == 'ASC') echo 'selected'; ?>>Least to Most</option>
-                                    </select>
-                                </div>
-
+                  <div class="custom-filter-container my-5">
+                    <form method="GET" action="myconstruct.php" class="custom-filter-form">
+                      <!-- Sort Dropdown -->
+                      <div class="custom-form-group">
+                        <label for="sort_order" class="custom-label">Sort by Points:</label>
+                        <select name="sort_order" id="sort_order" class="custom-form-control" onchange="this.form.submit()">
+                          <option value="DESC" <?php if ($sort_order == -1) echo 'selected'; ?>>Most to Least</option>
+                          <option value="ASC" <?php if ($sort_order == 1) echo 'selected'; ?>>Least to Most</option>
+                        </select>
+                      </div>
                                 <!-- Search Bar -->
                                 <div class="custom-form-group">
                                     <label for="search" class="custom-label">Search by constructor name:</label>
@@ -141,37 +162,35 @@ $total_pages = ceil($total_row["total"] / $results_per_page);
 
                         <!-- Table Data -->
                         <div class="row mt-5">
-                            <table class="table table-dark table-striped">
-                                <thead>
-                                  <tr>
-                                    <th scope="col">Constructor Name</th>
-                                    <th scope="col">No. of Pole Positions</th>
-                                    <th scope="col">No. of Titles</th>
-                                    <th scope="col">Constructor Points</th>
-                                    <th scope="col">Nationality</th>
-                                    <th scope="col">URL</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                <?php
-                                    if ($result->num_rows > 0) {
-                                        while($row = $result->fetch_assoc()) {
-                                            echo "<tr>";
-                                            echo "<td>" . $row['constructor_name'] . "</td>";
-                                            echo "<td>" . $row['no_of_pole_positions'] . "</td>";
-                                            echo "<td>" . $row['no_of_titles'] . "</td>";
-                                            echo "<td>" . $row['constructor_points'] . "</td>";
-                                            echo "<td>" . $row['nationality'] . "</td>";
-                                            echo "<td><a href='" . $row['url'] . "' target='_blank'>View More</a></td>";
-                                            echo "</tr>";
-                                        }
-                                    } else {
-                                        echo "<tr><td colspan='6'>No data available</td></tr>";
-                                    }
-                                ?>
-                                </tbody>
-                            </table>
-                        </div>
+                    <table class="table table-dark table-striped">
+                      <thead>
+                        <tr>
+                          <th scope="col">Constructor Name</th>
+                          <th scope="col">No. of Pole Positions</th>
+                          <th scope="col">No. of Titles</th>
+                          <th scope="col">Constructor Points</th>
+                          <th scope="col">Nationality</th>
+                          <th scope="col">URL</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <?php if (!empty($result)) : ?>
+                          <?php foreach ($result as $row) : ?>
+                            <tr>
+                              <td><?php echo htmlspecialchars($row['constructor_name'] ?? ''); ?></td>
+                              <td><?php echo htmlspecialchars($row['no_of_pole_positions'] ?? 0); ?></td>
+                              <td><?php echo htmlspecialchars($row['no_of_titles'] ?? 0); ?></td>
+                              <td><?php echo htmlspecialchars($row['constructor_points'] ?? 0); ?></td>
+                              <td><?php echo htmlspecialchars($row['nationality'] ?? ''); ?></td>
+                              <td><a href="<?php echo htmlspecialchars($row['url'] ?? '#'); ?>" target="_blank">View More</a></td>
+                            </tr>
+                          <?php endforeach; ?>
+                        <?php else : ?>
+                          <tr><td colspan="6">No data available</td></tr>
+                        <?php endif; ?>
+                      </tbody>
+                    </table>
+                  </div>
 
                         <!-- Pagination Controls -->
                         <!-- Pagination Controls -->

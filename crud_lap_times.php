@@ -134,7 +134,7 @@ if (isset($_GET['delete'])) {
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <!-- <th>ID</th> -->
                         <th>Race ID</th>
                         <th>Driver ID</th>
                         <th>Lap</th>
@@ -149,7 +149,7 @@ if (isset($_GET['delete'])) {
                     foreach ($result as $row) {
                         $id = (string)$row['_id'];
                         echo "<tr>";
-                        echo "<td>{$id}</td>";
+                        // echo "<td>{$id}</td>";
                         echo "<td>{$row['raceId']}</td>";
                         echo "<td>{$row['driverId']}</td>";
                         echo "<td>{$row['lap']}</td>";

@@ -1,66 +1,129 @@
 <?php
-
-include 'db/db.php';  // Include your database connection
+include 'db/db.php';  // Include your MongoDB connection
 
 // Set the number of results per page
 $results_per_page = 10;
 
-// Get search input
-$search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
-
-// Modify the SQL query to include the search functionality
-$sql_total = "SELECT COUNT(*) AS total 
-              FROM results rs 
-              INNER JOIN drivers d ON rs.driverId = d.driverId 
-              INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-              INNER JOIN races r ON rs.raceId = r.raceId 
-              INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
-              WHERE rs.position = 1 
-              AND c.constructor_id IN (SELECT constructor_id FROM constructors WHERE no_of_titles > 0)";
-
-// Check if a search keyword is provided and adjust the SQL query accordingly
-if (!empty($search_keyword)) {
-    $sql_total .= " AND (d.forename LIKE '%$search_keyword%' 
-                    OR c.constructor_name LIKE '%$search_keyword%' 
-                    OR ci.circuit_name LIKE '%$search_keyword%' 
-                    OR r.name LIKE '%$search_keyword%')";
-}
-
-$total_result = $conn->query($sql_total);
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row['total'] / $results_per_page);
-
 // Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
-// Calculate the starting limit number for the query
-$start_from = ($current_page - 1) * $results_per_page;
+// Calculate the skip limit number for pagination
+$skip = ($current_page - 1) * $results_per_page;
 
-// SQL query to fetch driver, constructor, race, and circuit data with limit
-$sql = "SELECT d.forename, c.constructor_name, r.name AS race_name, ci.circuit_name 
-        FROM results rs 
-        INNER JOIN drivers d ON rs.driverId = d.driverId 
-        INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-        INNER JOIN races r ON rs.raceId = r.raceId 
-        INNER JOIN circuits ci ON r.circuit_id = ci.circuit_id 
-        WHERE rs.position = 1 
-        AND c.constructor_id IN (SELECT constructor_id FROM constructors WHERE no_of_titles > 0)";
+// Get search input
+$search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
 
-// Apply the search filter if a keyword is provided
+// Build MongoDB aggregation pipeline
+$pipeline = [
+    // Join results with drivers, constructors, races, and circuits
+    [
+        '$lookup' => [
+            'from' => 'drivers',
+            'localField' => 'driverId',
+            'foreignField' => 'driverId',
+            'as' => 'driver_info'
+        ]
+    ],
+    ['$unwind' => '$driver_info'], // Unwind driver info
+
+    [
+        '$lookup' => [
+            'from' => 'constructors',
+            'localField' => 'constructorId',
+            'foreignField' => 'constructor_id',
+            'as' => 'constructor_info'
+        ]
+    ],
+    ['$unwind' => '$constructor_info'], // Unwind constructor info
+
+    [
+        '$lookup' => [
+            'from' => 'races',
+            'localField' => 'raceId',
+            'foreignField' => 'raceId',
+            'as' => 'race_info'
+        ]
+    ],
+    ['$unwind' => '$race_info'], // Unwind race info
+
+    [
+        '$lookup' => [
+            'from' => 'circuits',
+            'localField' => 'race_info.circuit_id',
+            'foreignField' => 'circuit_id',
+            'as' => 'circuit_info'
+        ]
+    ],
+    ['$unwind' => '$circuit_info'], // Unwind circuit info
+
+    // Filter for position 1 and constructors with at least one title
+    [
+        '$match' => [
+            'position' => 1,
+            'constructor_info.no_of_titles' => ['$gt' => 0]
+        ]
+    ],
+
+    // Apply the search filter if a keyword is provided
+    [
+        '$match' => [
+            '$or' => [
+                ['driver_info.forename' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['constructor_info.constructor_name' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['circuit_info.circuit_name' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['race_info.name' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+            ]
+        ]
+    ],
+
+    // Sort and limit results for pagination
+    ['$sort' => ['constructor_info.constructor_name' => 1, 'race_info.date' => 1]],
+    ['$skip' => $skip],
+    ['$limit' => $results_per_page]
+];
+
+// Execute aggregation query
+$query = $db->results->aggregate($pipeline);
+$results = iterator_to_array($query);
+
+// Total count pipeline for pagination calculation
+$total_pipeline = [
+    [
+        '$lookup' => [
+            'from' => 'constructors',
+            'localField' => 'constructorId',
+            'foreignField' => 'constructor_id',
+            'as' => 'constructor_info'
+        ]
+    ],
+    ['$unwind' => '$constructor_info'],
+    [
+        '$match' => [
+            'position' => 1,
+            'constructor_info.no_of_titles' => ['$gt' => 0]
+        ]
+    ]
+];
+
+// Add search filter for count if a keyword is present
 if (!empty($search_keyword)) {
-    $sql .= " AND (d.forename LIKE '%$search_keyword%' 
-             OR c.constructor_name LIKE '%$search_keyword%' 
-             OR ci.circuit_name LIKE '%$search_keyword%' 
-             OR r.name LIKE '%$search_keyword%')";
+    $total_pipeline[] = [
+        '$match' => [
+            '$or' => [
+                ['driver_info.forename' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['constructor_info.constructor_name' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['circuit_info.circuit_name' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['race_info.name' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+            ]
+        ]
+    ];
 }
 
-$sql .= " ORDER BY c.constructor_name, r.date 
-          LIMIT $start_from, $results_per_page";
-
-$result = $conn->query($sql);
-
+// Execute the total count query
+$total_query = $db->results->aggregate($total_pipeline);
+$total_rows = iterator_to_array($total_query);
+$total_pages = ceil(count($total_rows) / $results_per_page);
 ?>
-
 
 <!doctype html>
 <html lang="en">
@@ -87,11 +150,6 @@ $result = $conn->query($sql);
    <div class="topbar">
     <div class="container-fluid">
         <div class="row">
-            <div class="col-md-2">
-                <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
-                </div>
-            </div>
         </div>
     </div>
    </div>
@@ -137,42 +195,37 @@ $result = $conn->query($sql);
         </div>
     <?php endif; ?>
 
+<div class="container">
 
-<div class="row mt-5">
-    <table  class="table table-dark table-striped">
+    <table class="table table-dark table-striped">
         <thead>
-          <tr>
-          <th>Driver Name</th>
-                                    <th>Constructor Name</th>
-                                    <th>Race Name</th>
-                                    <th>Circuit Name</th>
-          </tr>
+        <tr>
+            <th>Driver Name</th>
+            <th>Constructor Name</th>
+            <th>Race Name</th>
+            <th>Circuit Name</th>
+        </tr>
         </thead>
         <tbody>
         <?php
-                                if ($result->num_rows > 0) {
-                                    // Output each row of data
-                                    while($row = $result->fetch_assoc()) {
-                                        echo "<tr>";
-                                        echo "<td>" . htmlspecialchars($row['forename']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['constructor_name']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['race_name']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['circuit_name']) . "</td>";
-                                        echo "</tr>";
-                                    }
-                                } else {
-                                    echo "<tr><td colspan='4'>No data available</td></tr>";
-                                }
-                                ?>
-                            </tbody>
+        if (!empty($results)) {
+            foreach ($results as $row) {
+                echo "<tr>";
+                echo "<td>" . htmlspecialchars($row['driver_info']['forename']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['constructor_info']['constructor_name']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['race_info']['name']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['circuit_info']['circuit_name']) . "</td>";
+                echo "</tr>";
+            }
+        } else {
+            echo "<tr><td colspan='4'>No data available</td></tr>";
+        }
+        ?>
         </tbody>
-      </table>
-      
-</div>
+    </table>
 
-    <!-- Pagination Controls (Previous, Next, and Page Numbers) -->
-<!-- Pagination Controls (Previous, Next, and Limited Page Numbers) -->
-<div class="pagination">
+    <!-- Pagination Controls -->
+    <div class="pagination">
     <?php
     // Ensure $current_page is always an integer
     $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
@@ -221,26 +274,8 @@ $result = $conn->query($sql);
     ?>
 </div>
 
-
-                        
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-   </section>
-
-
-
-   <script>
-    // Show more items when "View More" is clicked
-    document.getElementById("view-more-btn").addEventListener("click", function() {
-        var moreItems = document.getElementById("more-items");
-        var viewMoreBtn = document.getElementById("view-more-li");
-        moreItems.style.display = "block";
-        viewMoreBtn.style.display = "none";
-    });
-</script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-  </body>
+</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</body>
 </html>

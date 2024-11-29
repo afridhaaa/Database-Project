@@ -1,80 +1,80 @@
 <?php
-include 'db/db.php';  // Include your database connection
+include 'db/db.php';  // Include your MongoDB database connection
+$collection = $db->selectCollection('results');
 
-// Set the number of results per page
+// Pagination and Filters
 $results_per_page = 10;
-
-// Initialize search and sorting variables
-$driver_name = isset($_GET['driver_name']) ? $_GET['driver_name'] : '';
-$constructor_name = isset($_GET['constructor_name']) ? $_GET['constructor_name'] : '';
-$circuit_name = isset($_GET['circuit_name']) ? $_GET['circuit_name'] : '';
-$race_name = isset($_GET['race_name']) ? $_GET['race_name'] : '';
-$sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'ASC';
-$sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'starting_position'; // Default sort by starting position
-
-// Build the SQL query for total results considering search criteria
-$sql_total = "SELECT COUNT(*) AS total 
-              FROM results rs 
-              INNER JOIN races r ON rs.raceId = r.raceId 
-              INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-              INNER JOIN drivers d ON rs.driverId = d.driverId 
-              WHERE rs.position < rs.grid";
-
-if (!empty($driver_name)) {
-    $sql_total .= " AND d.forename LIKE '%" . $conn->real_escape_string($driver_name) . "%'";
-}
-if (!empty($constructor_name)) {
-    $sql_total .= " AND c.constructor_name LIKE '%" . $conn->real_escape_string($constructor_name) . "%'";
-}
-if (!empty($circuit_name)) {
-    $sql_total .= " AND r.circuit_name LIKE '%" . $conn->real_escape_string($circuit_name) . "%'";
-}
-if (!empty($race_name)) {
-    $sql_total .= " AND r.name LIKE '%" . $conn->real_escape_string($race_name) . "%'";
-}
-
-$total_result = $conn->query($sql_total);
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row['total'] / $results_per_page);
-
-// Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+$skip = ($current_page - 1) * $results_per_page;
+$driver_name = isset($_GET['driver_name']) ? trim($_GET['driver_name']) : '';
+$constructor_name = isset($_GET['constructor_name']) ? trim($_GET['constructor_name']) : '';
+$sort_order = isset($_GET['sort_order']) && $_GET['sort_order'] === 'DESC' ? -1 : 1;
+$sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'starting_position';
 
-// Calculate the starting limit number for the query
-$start_from = ($current_page - 1) * $results_per_page;
+// Pre-Lookup Match Conditions
+$pre_lookup_match = [
+    '$expr' => ['$lt' => ['$position', '$grid']]
+];
 
-// SQL query to retrieve races considering search and sort criteria
-$sql = "SELECT d.forename, r.name AS race_name, rs.grid AS starting_position, 
-               rs.position AS final_position, c.constructor_name 
-        FROM results rs 
-        INNER JOIN races r ON rs.raceId = r.raceId 
-        INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-        INNER JOIN drivers d ON rs.driverId = d.driverId 
-        WHERE rs.position < rs.grid";
-
+// Post-Lookup Match Conditions
+$post_lookup_match = [];
 if (!empty($driver_name)) {
-    $sql .= " AND d.forename LIKE '%" . $conn->real_escape_string($driver_name) . "%'";
+    $post_lookup_match['driver_details.forename'] = new MongoDB\BSON\Regex($driver_name, 'i');
 }
 if (!empty($constructor_name)) {
-    $sql .= " AND c.constructor_name LIKE '%" . $conn->real_escape_string($constructor_name) . "%'";
-}
-if (!empty($circuit_name)) {
-    $sql .= " AND r.circuit_name LIKE '%" . $conn->real_escape_string($circuit_name) . "%'";
-}
-if (!empty($race_name)) {
-    $sql .= " AND r.name LIKE '%" . $conn->real_escape_string($race_name) . "%'";
+    $post_lookup_match['constructor_details.constructor_name'] = new MongoDB\BSON\Regex($constructor_name, 'i');
 }
 
-// Determine sorting column and order
+// Aggregation Pipeline
+$pipeline = [
+    ['$match' => $pre_lookup_match],
+    ['$lookup' => [
+        'from' => 'drivers',
+        'localField' => 'driverId',
+        'foreignField' => 'driverId',
+        'as' => 'driver_details'
+    ]],
+    ['$unwind' => '$driver_details'],
+    ['$lookup' => [
+        'from' => 'constructors',
+        'localField' => 'constructorId',
+        'foreignField' => 'constructor_id',
+        'as' => 'constructor_details'
+    ]],
+    ['$unwind' => '$constructor_details'],
+    ['$lookup' => [
+        'from' => 'races',
+        'localField' => 'raceId',
+        'foreignField' => 'raceId',
+        'as' => 'race_details'
+    ]],
+    ['$unwind' => '$race_details']
+];
+
+if (!empty($post_lookup_match)) {
+    $pipeline[] = ['$match' => $post_lookup_match];
+}
+
 if ($sort_by == 'starting_position') {
-    $sql .= " ORDER BY rs.grid " . ($sort_order === 'DESC' ? 'DESC' : 'ASC');
+    $pipeline[] = ['$sort' => ['grid' => $sort_order]];
 } else if ($sort_by == 'final_position') {
-    $sql .= " ORDER BY rs.position " . ($sort_order === 'DESC' ? 'DESC' : 'ASC');
-} 
+    $pipeline[] = ['$sort' => ['position' => $sort_order]];
+}
 
-$sql .= " LIMIT $start_from, $results_per_page";
+$pipeline[] = ['$skip' => $skip];
+$pipeline[] = ['$limit' => $results_per_page];
 
-$result = $conn->query($sql);
+// Fetch Data
+$data = iterator_to_array($collection->aggregate($pipeline));
+
+// Total Count
+$total_count_pipeline = [
+    ['$match' => $pre_lookup_match],
+    ['$count' => 'total']
+];
+$total_count_result = $collection->aggregate($total_count_pipeline)->toArray();
+$total_count = $total_count_result[0]['total'] ?? 0;
+$total_pages = max(ceil($total_count / $results_per_page), 1);
 ?>
 
 <!doctype html>
@@ -92,9 +92,9 @@ $result = $conn->query($sql);
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-2">
-                <div class="heading">
+                <!-- <div class="heading">
                   <a href="index.php">  <h4>Formula1</h4></a>
-                </div>
+                </div> -->
             </div>
         </div>
     </div>
@@ -165,8 +165,6 @@ $result = $conn->query($sql);
 <?php endif; ?>
 
 
-
-
 <div class="row mt-5">
     <table  class="table table-dark table-striped">
         <thead>
@@ -179,22 +177,19 @@ $result = $conn->query($sql);
           </tr>
         </thead>
         <tbody>
-        <?php
-                            if ($result->num_rows > 0) {
-                                while($row = $result->fetch_assoc()) {
-                                    echo "<tr>";
-                                    echo "<td>" . htmlspecialchars($row['forename']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($row['race_name']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($row['starting_position']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($row['final_position']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($row['constructor_name']) . "</td>";
-                                    echo "</tr>";
-                                }
-                            } else {
-                                echo "<tr><td colspan='5'>No data available</td></tr>";
-                            }
-                            ?>
-                            </tbody>
+        <?php if (empty($data)): ?>
+                                        <tr><td colspan="5">No data available</td></tr>
+                                    <?php else: ?>
+                                        <?php foreach ($data as $row): ?>
+                                            <tr>
+                                                <td><?php echo htmlspecialchars($row['driver_details']['forename']); ?></td>
+                                                <td><?php echo htmlspecialchars($row['race_details']['name']); ?></td>
+                                                <td><?php echo htmlspecialchars($row['grid']); ?></td>
+                                                <td><?php echo htmlspecialchars($row['position']); ?></td>
+                                                <td><?php echo htmlspecialchars($row['constructor_details']['constructor_name']); ?></td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
         </tbody>
       </table>
       
@@ -266,17 +261,6 @@ $result = $conn->query($sql);
     </div>
    </section>
 
-
-
-   <script>
-    // Show more items when "View More" is clicked
-    document.getElementById("view-more-btn").addEventListener("click", function() {
-        var moreItems = document.getElementById("more-items");
-        var viewMoreBtn = document.getElementById("view-more-li");
-        moreItems.style.display = "block";
-        viewMoreBtn.style.display = "none";
-    });
-</script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
   </body>
 </html>

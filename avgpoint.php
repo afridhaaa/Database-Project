@@ -9,53 +9,125 @@ $results_per_page = 10;
 $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'DESC'; // Default to DESC
 $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
 
-// Determine the total number of distinct driver-constructor pairs for pagination
-$sql_total = "SELECT COUNT(DISTINCT d.driverId) AS total 
-              FROM results rs 
-              INNER JOIN drivers d ON rs.driverId = d.driverId 
-              INNER JOIN constructors c ON rs.constructorId = c.constructor_id
-              WHERE d.forename LIKE '%$search_keyword%' OR c.constructor_name LIKE '%$search_keyword%'";
-$total_result = $conn->query($sql_total);
-$total_row = $total_result->fetch_assoc();
-$total_pages = ceil($total_row['total'] / $results_per_page);
-
 // Get the current page number from URL, if not set, default to 1
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 
-// Calculate the starting limit number for the query
-$start_from = ($current_page - 1) * $results_per_page;
+// Calculate the skip limit number for pagination
+$skip = ($current_page - 1) * $results_per_page;
 
-// SQL query to get the average points of drivers by constructor with limit
-$sql = "SELECT d.forename, c.constructor_name, AVG(rs.points) AS avg_points 
-        FROM results rs 
-        INNER JOIN drivers d ON rs.driverId = d.driverId 
-        INNER JOIN constructors c ON rs.constructorId = c.constructor_id 
-        WHERE d.forename LIKE '%$search_keyword%' OR c.constructor_name LIKE '%$search_keyword%'
-        GROUP BY d.forename, c.constructor_name 
-        ORDER BY avg_points $sort_order 
-        LIMIT $start_from, $results_per_page";
+// Build MongoDB aggregation pipeline for average points
+$pipeline = [
+    // Match to filter by driver or constructor names
+    [
+        '$lookup' => [
+            'from' => 'drivers',
+            'localField' => 'driverId',
+            'foreignField' => 'driverId',
+            'as' => 'driver'
+        ]
+    ],
+    ['$unwind' => '$driver'],
+    [
+        '$lookup' => [
+            'from' => 'constructors',
+            'localField' => 'constructorId',
+            'foreignField' => 'constructor_id',
+            'as' => 'constructor'
+        ]
+    ],
+    ['$unwind' => '$constructor'],
+    [
+        '$match' => [
+            '$or' => [
+                ['driver.forename' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['constructor.constructor_name' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+            ]
+        ]
+    ],
+    [
+        '$group' => [
+            '_id' => [
+                'driver' => '$driver.forename',
+                'constructor' => '$constructor.constructor_name'
+            ],
+            'avg_points' => ['$avg' => '$points']
+        ]
+    ],
+    // Sort by average points
+    ['$sort' => ['avg_points' => ($sort_order == 'DESC' ? -1 : 1)]],
+    // Skip and limit for pagination
+    ['$skip' => $skip],
+    ['$limit' => $results_per_page]
+];
 
-$result = $conn->query($sql);
+// Execute aggregation query
+$query = $db->results->aggregate($pipeline);
+$results = iterator_to_array($query);
+
+// Count total distinct driver-constructor pairs for pagination
+$total_pipeline = [
+    [
+        '$lookup' => [
+            'from' => 'drivers',
+            'localField' => 'driverId',
+            'foreignField' => 'driverId',
+            'as' => 'driver'
+        ]
+    ],
+    ['$unwind' => '$driver'],
+    [
+        '$lookup' => [
+            'from' => 'constructors',
+            'localField' => 'constructorId',
+            'foreignField' => 'constructor_id',
+            'as' => 'constructor'
+        ]
+    ],
+    ['$unwind' => '$constructor'],
+    [
+        '$match' => [
+            '$or' => [
+                ['driver.forename' => new MongoDB\BSON\Regex($search_keyword, 'i')],
+                ['constructor.constructor_name' => new MongoDB\BSON\Regex($search_keyword, 'i')]
+            ]
+        ]
+    ],
+    [
+        '$group' => [
+            '_id' => [
+                'driver' => '$driver.forename',
+                'constructor' => '$constructor.constructor_name'
+            ]
+        ]
+    ],
+    ['$count' => 'total']
+];
+
+// Execute total count pipeline
+$total_query = $db->results->aggregate($total_pipeline);
+$total_result = iterator_to_array($total_query);
+$total_pages = ceil(($total_result[0]['total'] ?? 0) / $results_per_page);
 
 ?>
 <!doctype html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bootstrap demo</title>
+    <title>Average Points by Driver and Constructor</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />  
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVcey ```php
+QqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />  
     <link rel="stylesheet" href="./assets/css/style.css">
 </head>
-  <body>
+<body>
    <div class="topbar">
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-2">
-                <div class="heading">
+                <!-- <div class="heading">
                   <a href="index.php">  <h4>Formula1</h4></a>
-                </div>
+                </div> -->
             </div>
         </div>
     </div>
@@ -75,7 +147,7 @@ $result = $conn->query($sql);
         <a href="index.php" class="button-8">← Back to Home</a>
     </div>
                             <div class="head">
-                                <h2>the average points scored by each driver for a particular constructor</h2>
+                                <h2>The Average Points Scored by Each Driver for a Particular Constructor</h2>
                             </div>
                         </div>
                        <!-- Sort and Search Form -->
@@ -92,8 +164,8 @@ $result = $conn->query($sql);
 
         <!-- Search Bar -->
         <div class="custom-form-group">
-        <label for="search" class="custom-label">Search by constructor or driver name:</label>
-            <input type="text" name="search" class="custom-form-control custom-search-bar" placeholder="Search by constructor or driver" value="<?php echo $search_keyword; ?>">
+        <label for="search" class="custom-label">Search by Constructor or Driver Name:</label>
+            <input type="text" name="search" class="custom-form-control custom-search-bar" placeholder="Search by constructor or driver" value="<?php echo htmlspecialchars($search_keyword); ?>">
         </div>
 
         <!-- Search Button -->
@@ -105,14 +177,14 @@ $result = $conn->query($sql);
 
 <!-- Clear Search Button: Show only when search is applied -->
 <?php if (!empty($search_keyword)) : ?>
-    <div style="margin-bottom: 20px; margin-left:  30px;">
+    <div style="margin-bottom: 20px; margin-left: 30px;">
         <a href="avgpoint.php" class="custom-btn custom-btn-clear">Clear Search</a>
     </div>
 <?php endif; ?>
 
 
 <div class="row mt-5">
-    <table  class="table table-dark table-striped">
+    <table class="table table-dark table-striped">
         <thead>
           <tr>
           <th scope="col">Driver Name</th>
@@ -122,12 +194,12 @@ $result = $conn->query($sql);
         </thead>
         <tbody>
         <?php
-                                if ($result->num_rows > 0) {
+                                if (count($results) > 0) {
                                     // Output each row of data
-                                    while($row = $result->fetch_assoc()) {
+                                    foreach ($results as $row) {
                                         echo "<tr>";
-                                        echo "<td>" . $row['forename'] . "</td>";
-                                        echo "<td>" . $row['constructor_name'] . "</td>";
+                                        echo "<td>" . htmlspecialchars($row['_id']['driver']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($row['_id']['constructor']) . "</td>";
                                         echo "<td>" . round($row['avg_points'], 2) . "</td>"; // Rounded to 2 decimal places
                                         echo "</tr>";
                                     }
@@ -182,7 +254,6 @@ $result = $conn->query($sql);
     ?>
 </div>
 
-                        
                     </div>
                 </div>
             </div>
@@ -190,17 +261,6 @@ $result = $conn->query($sql);
     </div>
    </section>
 
-
-
-   <script>
-    // Show more items when "View More" is clicked
-    document.getElementById("view-more-btn").addEventListener("click", function() {
-        var moreItems = document.getElementById("more-items");
-        var viewMoreBtn = document.getElementById("view-more-li");
-        moreItems.style.display = "block";
-        viewMoreBtn.style.display = "none";
-    });
-</script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-  </body>
+   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+</body>
 </html>

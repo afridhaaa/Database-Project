@@ -35,6 +35,7 @@ $result = $db->drivers->find([], [
 // Create Driver
 if (isset($_POST['create'])) {
     $newDriver = [
+        
         'forename' => $_POST['forename'],
         'constructor_id' => (int)$_POST['constructor_id'],
         'no_of_fastest_laps' => (int)$_POST['no_of_fastest_laps'],
@@ -140,7 +141,7 @@ if (isset($_GET['delete'])) {
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <!-- <th>ID</th> -->
                         <th>Name</th>
                         <th>Constructor ID</th>
                         <th>No. of Fastest Laps</th>
@@ -158,7 +159,7 @@ if (isset($_GET['delete'])) {
                     foreach ($result as $row) {
                         $id = (string)$row['_id'];
                         echo "<tr>";
-                        echo "<td>{$id}</td>";
+                        // echo "<td>{$id}</td>";
                         echo "<td>{$row['forename']}</td>";
                         echo "<td>{$row['constructor_id']}</td>";
                         echo "<td>{$row['no_of_fastest_laps']}</td>";
@@ -275,6 +276,11 @@ if (isset($_GET['delete'])) {
             </div>
             <form action="" method="POST">
                 <div class="modal-body">
+                    <!-- Add Driver ID Field Here -->
+                    <!-- <div class="mb-3">
+                        <label for="driverId" class="form-label">Driver ID</label>
+                        <input type="text" class="form-control" name="driverId" required>
+                    </div> -->
                     <div class="mb-3">
                         <label for="forename" class="form-label">Forename</label>
                         <input type="text" class="form-control" name="forename" required>
