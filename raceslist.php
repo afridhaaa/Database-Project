@@ -96,7 +96,7 @@ $result = $db->results->aggregate($pipeline);
         <div class="row">
             <div class="col-md-2">
                 <div class="heading">
-                  <a href="index.php">  <!-- <h4>Formula1</h4></a> -->
+                  <a href="index.php">  
                 </div>
             </div>
         </div>
@@ -146,62 +146,48 @@ $result = $db->results->aggregate($pipeline);
                               </table>
                           </div>
 
-    <!-- Pagination Controls (Previous and Next only) -->
-    <nav>
-    <ul class="pagination justify-content-center">
-        <?php
-        // Ensure current page and total pages are integers
-        $current_page = isset($_GET['page']) && is_numeric($_GET['page']) && $_GET['page'] > 0 
-            ? intval($_GET['page']) 
-            : 1;
+    <!-- Pagination Controls with Page Numbers -->
+    <<div class="pagination">
+    <?php
+    // Ensure $current_page is an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-        $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
-            ? intval($total_pages) 
-            : 1;
+    // Ensure $total_pages is at least 1 to avoid errors
+    $total_pages = isset($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
 
-        // Number of page links to display at once
-        $max_links = 8;
+    // Set default values for search and sort order
+    $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
+    $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'asc';
 
-        // Calculate the range of pages to display
-        $start_page = max(1, $current_page - floor($max_links / 2));
-        $end_page = min($total_pages, $start_page + $max_links - 1);
+    // Previous button
+    if ($current_page > 1) {
+        echo '<a href="raceslist.php?page=' . ($current_page - 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
 
-        if ($end_page - $start_page < $max_links - 1) {
-            $start_page = max(1, $end_page - $max_links + 1);
-        }
-
-        // Previous button
-        if ($current_page > 1) {
-            echo '<li class="page-item">
-                    <a class="page-link" href="raceslist.php?page=' . ($current_page - 1) . '">Previous</a>
-                  </li>';
+    // Page number buttons
+    for ($i = 1; $i <= $total_pages; $i++) {
+        if ($i == $current_page) {
+            echo '<span class="current-page">' . $i . '</span>'; // Current page
         } else {
-            echo '<li class="page-item disabled">
-                    <span class="page-link">Previous</span>
-                  </li>';
+            echo '<a href="raceslist.php?page=' . $i . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '">' . $i . '</a>';
         }
+    }
 
-        // Display page numbers within the calculated range
-        for ($i = $start_page; $i <= $end_page; $i++) {
-            $active = ($i == $current_page) ? 'active' : '';
-            echo '<li class="page-item ' . $active . '">
-                    <a class="page-link" href="raceslist.php?page=' . $i . '">' . $i . '</a>
-                  </li>';
-        }
+    // Next button
+    if ($current_page < $total_pages) {
+        echo '<a href="raceslist.php?page=' . ($current_page + 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
+</div>
 
-        // Next button
-        if ($current_page < $total_pages) {
-            echo '<li class="page-item">
-                    <a class="page-link" href="raceslist.php?page=' . ($current_page + 1) . '">Next</a>
-                  </li>';
-        } else {
-            echo '<li class="page-item disabled">
-                    <span class="page-link">Next</span>
-                  </li>';
-        }
-        ?>
-    </ul>
-</nav>
 
                         
                     </div>

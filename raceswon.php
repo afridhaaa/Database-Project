@@ -234,75 +234,63 @@ $total_pages = ceil(($total_result[0]['total'] ?? 0 ) / $results_per_page);
                             </table>
                         </div>
 
-                        <!-- Pagination Controls -->
                         <div class="pagination">
-                            <?php
-                            // Ensure $current_page and $total_pages are integers
-                            $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
-                                ? intval($_GET['page']) 
-                                : 1;
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-                            $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
-                                ? intval($total_pages) 
-                                : 1;
+    // Ensure $total_pages is always an integer and greater than zero
+    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
 
-                            // Previous button
-                            if ($current_page > 1) {
-                                echo '<a href="raceswon.php?page=' . ($current_page - 1) . '&driver_name=' . urlencode($driver_name) . '&circuit_name=' . urlencode($circuit_name) . '&race_name=' . urlencode($race_name) . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
-                            } else {
-                                echo '<span class="disabled">Previous</span>';
-                            }
+    // Define the maximum number of links to display
+    $max_links = 7;
 
-                            // Display first three pages
-                            for ($i = 1; $i <= min(3, $total_pages); $i++) {
-                                if ($i == $current_page) {
-                                    echo '<a href="#" class="active">' . $i . '</a>'; // Active page
-                                } else {
-                                    echo '<a href="raceswon.php?page=' . $i . '&driver_name=' . urlencode($driver_name) . '&circuit_name=' . urlencode($circuit_name) . '&race_name=' . urlencode($race_name) . '&sort_order=' . $sort_order . '" class="button-7">' . $i . '</a>';
-                                }
-                            }
+    // Calculate the start and end pages
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
 
-                            // Ellipsis after first three pages if needed
-                            if ($total_pages > 6 && $current_page > 4) {
-                                echo '<span class="ellipsis">...</span>';
-                            }
+    // Adjust start_page if the range is less than $max_links
+    if ($end_page - $start_page + 1 < $max_links) {
+        $start_page = max(1, $end_page - $max_links + 1);
+    }
 
-                            // Display middle three pages
-                            $start = max(4, $current_page - 1);
-                            $end = min($total_pages - 3, $current_page + 1);
+    // Preserve search parameters
+    $query_params = [
+        'search_points' => $search_points ?? '',
+        'search_rank' => $search_rank ?? '',
+        'sort_order' => $sort_order ?? ''
+    ];
 
-                            for ($i = $start; $i <= $end; $i++) {
-                                if ($i > 3 && $i < $total_pages - 2) { // Only show if it's not the first three or last three
-                                    if ($i == $current_page) {
-                                        echo '<a href="#" class="active">' . $i . '</a>'; // Active page
-                                    } else {
-                                        echo '<a href="raceswon.php?page=' . $i . '&driver_name=' . urlencode($driver_name) . '&circuit_name=' . urlencode($circuit_name) . '&race_name=' . urlencode($race_name) . '&sort_order=' . $sort_order . '" class="button-7">' . $i . '</a>';
-                                    }
-                                }
-                            }
+    // Display "Previous" button
+    if ($current_page > 1) {
+        $query_params['page'] = $current_page - 1;
+        echo '<a href="raceswon.php?' . http_build_query($query_params) . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
 
-                            // Ellipsis before last three pages if needed
-                            if ($total_pages > 6 && $current_page < $total_pages - 3) {
-                                echo '<span class="ellipsis">...</span>';
-                            }
+    // Display limited page numbers
+    for ($i = $start_page; $i <= $end_page; $i++) {
+        $query_params['page'] = $i;
+        if ($i == $current_page) {
+            echo '<span class="current-page">' . $i . '</span>'; // Current page
+        } else {
+            echo '<a href="raceswon.php?' . http_build_query($query_params) . '">' . $i . '</a>';
+        }
+    }
 
-                            // Display last three pages
-                            for ($i = max(1, $total_pages - 2); $i <= $total_pages; $i++) {
-                                if ($i == $current_page) {
-                                    echo '<a href="#" class="active">' . $i . '</a>'; // Active page
-                                } else {
-                                    echo '<a href="raceswon.php?page=' . $i . '&driver_name=' . urlencode($driver_name) . '&circuit_name=' . urlencode($circuit_name) . '&race_name=' . urlencode($race_name) . '&sort_order=' . $sort_order . '" class="button-7">' . $i . '</a>';
-                                }
-                            }
-
-                            // Next button
-                            if ($current_page < $total_pages) {
-                                echo '<a href="raceswon.php?page=' . ($current_page + 1) . '&driver_name=' . urlencode($driver_name) . '&circuit_name=' . urlencode($circuit_name) . '&race_name=' . urlencode($race_name) . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
-                            } else {
-                                echo '<span class="disabled">Next</span>';
-                            }
-                            ?>
-                        </div>
+    // Display "Next" button
+    if ($current_page < $total_pages) {
+        $query_params['page'] = $current_page + 1;
+        echo '<a href="raceswon.php?' . http_build_query($query_params) . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
                     </div>
                 </div>
             </div>

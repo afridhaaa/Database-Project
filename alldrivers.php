@@ -130,18 +130,18 @@ $total_pages = ceil(count($total_rows) / $results_per_page);
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Bootstrap demo</title>
+    <title>Formula Vault</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />  
     <link rel="stylesheet" href="./assets/css/style.css">
     <style>
-        .pagination a, .pagination span {
+        /* .pagination a, .pagination span {
             margin: 0 5px;
             padding: 10px;
             text-decoration: none;
             border: 1px solid #ddd;
             color: #333;
-        }
+        } */
 
        
     </style>
@@ -225,33 +225,33 @@ $total_pages = ceil(count($total_rows) / $results_per_page);
     </table>
 
     <!-- Pagination Controls -->
-    <div class="pagination">
+<div class="pagination">
     <?php
     // Ensure $current_page is always an integer
-    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
-        ? intval($_GET['page']) 
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page'])
+        ? intval($_GET['page'])
         : 1;
 
     // Ensure $total_pages is a valid integer and at least 1
-    $total_pages = isset($total_pages) && $total_pages > 0 
-        ? intval($total_pages) 
+    $total_pages = isset($total_pages) && $total_pages > 0
+        ? intval($total_pages)
         : 1;
 
-    // Set how many page links to display at once
-    $links_to_show = 5;
+    // Define the maximum number of links to display
+    $max_links = 7;
 
-    // Calculate the start and end page numbers
-    $start_page = max(1, $current_page - floor($links_to_show / 2));
-    $end_page = min($total_pages, $start_page + $links_to_show - 1);
+    // Calculate start and end pages
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
 
-    // Adjust start page if we are at the end of the pagination range
-    if ($end_page - $start_page + 1 < $links_to_show) {
-        $start_page = max(1, $end_page - $links_to_show + 1);
+    // Adjust start_page if the range is less than $max_links
+    if ($end_page - $start_page < $max_links - 1) {
+        $start_page = max(1, $end_page - $max_links + 1);
     }
 
     // Display "Previous" button
     if ($current_page > 1) {
-        echo '<a href="alldrivers.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
+        echo '<a href="alldrivers.php?page=' . ($current_page - 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
     } else {
         echo '<span class="disabled">Previous</span>';
     }
@@ -259,15 +259,15 @@ $total_pages = ceil(count($total_rows) / $results_per_page);
     // Display limited page numbers
     for ($i = $start_page; $i <= $end_page; $i++) {
         if ($i == $current_page) {
-            echo '<a href="#" class="current-page">' . $i . '</a>'; // Active page
+            echo '<span class="current-page">' . $i . '</span>'; // Active page
         } else {
-            echo '<a href="alldrivers.php?page=' . $i . '">' . $i . '</a>';
+            echo '<a href="alldrivers.php?page=' . $i . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '">' . $i . '</a>';
         }
     }
 
     // Display "Next" button
     if ($current_page < $total_pages) {
-        echo '<a href="alldrivers.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
+        echo '<a href="alldrivers.php?page=' . ($current_page + 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
     } else {
         echo '<span class="disabled">Next</span>';
     }

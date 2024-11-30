@@ -78,7 +78,7 @@ $total_pages = ceil($total_count / $results_per_page);
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Formula1 - Races</title>
+    <title>Formula Vault - Races</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="./assets/css/style.css">
@@ -91,7 +91,7 @@ $total_pages = ceil($total_count / $results_per_page);
         <div class="row">
             <div class="col-md-2">
                 <div class="heading">
-                  <a href="index.php"> <!-- <h4>Formula1</h4></a> -->
+                  <a href="index.php"> 
                 </div>
             </div>
         </div>
@@ -164,7 +164,7 @@ $total_pages = ceil($total_count / $results_per_page);
                             <table class="table table-dark table-striped">
                                 <thead>
                                     <tr>
-                                        <th>Race ID</th>
+                                        <!-- <th>Race ID</th> -->
                                         <th>Year</th>
                                         <th>Round</th>
                                         <th>Circuit ID</th>
@@ -174,78 +174,90 @@ $total_pages = ceil($total_count / $results_per_page);
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($data as $row): ?>
-                                        <tr>
-                                            <td><?php echo htmlspecialchars($row['raceId']); ?></td>
-                                            <td><?php echo htmlspecialchars($row['year']); ?></td>
-                                            <td><?php echo htmlspecialchars($row['round']); ?></td>
-                                            <td><?php echo htmlspecialchars($row['circuit_id']); ?></td>
-                                            <td><?php echo htmlspecialchars($row['name']); ?></td>
-                                            <td><?php echo htmlspecialchars($row['date']); ?></td>
-                                            <td><a href="<?php echo htmlspecialchars($row['url']); ?>" target="_blank">Link</a></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
+    <?php foreach ($data as $row): ?>
+        <tr>
+            <!-- <td><?php echo isset($row['raceId']) ? htmlspecialchars($row['raceId']) : 'N/A'; ?></td> -->
+            <td><?php echo isset($row['year']) ? htmlspecialchars($row['year']) : 'N/A'; ?></td>
+            <td><?php echo isset($row['round']) ? htmlspecialchars($row['round']) : 'N/A'; ?></td>
+            <td><?php echo isset($row['circuit_id']) ? htmlspecialchars($row['circuit_id']) : 'N/A'; ?></td>
+            <td><?php echo isset($row['name']) ? htmlspecialchars($row['name']) : 'N/A'; ?></td>
+            <td><?php echo isset($row['date']) ? htmlspecialchars($row['date']) : 'N/A'; ?></td>
+            <td>
+                <?php if (isset($row['url']) && !empty($row['url'])): ?>
+                    <a href="<?php echo htmlspecialchars($row['url']); ?>" target="_blank">Link</a>
+                <?php else: ?>
+                    N/A
+                <?php endif; ?>
+            </td>
+        </tr>
+    <?php endforeach; ?>
+</tbody>
+
                             </table>
                         </div>
 
-            
-                        <nav>
-    <ul class="pagination justify-content-center">
-        <?php
-        // Ensure $page and $total_pages are integers
-        $page = isset($_GET['page']) && is_numeric($_GET['page']) 
-            ? intval($_GET['page']) 
-            : 1;
+                        <div class="pagination">
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-        $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
-            ? intval($total_pages) 
-            : 1;
+    // Ensure $total_pages is always an integer and greater than zero
+    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
 
-        // Define the number of pagination links to display
-        $max_links = 8;
+    // Define the maximum number of links to display
+    $max_links = 7;
 
-        // Calculate the start and end pages for the pagination
-        $start_page = max(1, $page - floor($max_links / 2));
-        $end_page = min($total_pages, $start_page + $max_links - 1);
+    // Calculate the start and end pages
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
 
-        // Adjust start page if we're close to the end
-        if ($end_page - $start_page < $max_links - 1) {
-            $start_page = max(1, $end_page - $max_links + 1);
-        }
+    // Adjust start_page if the range is less than $max_links
+    if ($end_page - $start_page + 1 < $max_links) {
+        $start_page = max(1, $end_page - $max_links + 1);
+    }
 
-        // Previous button
-        if ($page > 1) {
-            echo '<li class="page-item">
-                    <a class="page-link" href="myrace.php?page=' . ($page - 1) . '">Previous</a>
-                  </li>';
-        } else {
-            echo '<li class="page-item disabled">
-                    <span class="page-link">Previous</span>
-                  </li>';
-        }
+   // Preserve search parameters
+$query_params = [
+    'search_name' => $search_name ?? '',
+    'search_year' => $search_year ?? '',
+    'search_round' => $search_round ?? '',
+    'sort_order' => $sort_order === -1 ? 'DESC' : 'ASC' // Ensure sort_order is included
+];
 
-        // Display page numbers within the calculated range
-        for ($i = $start_page; $i <= $end_page; $i++) {
-            $active = ($i == $page) ? 'active' : '';
-            echo '<li class="page-item ' . $active . '">
-                    <a class="page-link" href="myrace.php?page=' . $i . '">' . $i . '</a>
-                  </li>';
-        }
+// Display "Previous" button
+if ($current_page > 1) {
+    $query_params['page'] = $current_page - 1;
+    echo '<a href="myrace.php?' . http_build_query($query_params) . '" class="button-7">Previous</a>';
+} else {
+    echo '<span class="disabled">Previous</span>';
+}
 
-        // Next button
-        if ($page < $total_pages) {
-            echo '<li class="page-item">
-                    <a class="page-link" href="myrace.php?page=' . ($page + 1) . '">Next</a>
-                  </li>';
-        } else {
-            echo '<li class="page-item disabled">
-                    <span class="page-link">Next</span>
-                  </li>';
-        }
-        ?>
-    </ul>
-</nav>                        
+// Display limited page numbers
+for ($i = $start_page; $i <= $end_page; $i++) {
+    $query_params['page'] = $i;
+    if ($i == $current_page) {
+        echo '<span class="current-page">' . $i . '</span>'; // Current page
+    } else {
+        echo '<a href="myrace.php?' . http_build_query($query_params) . '">' . $i . '</a>';
+    }
+}
+
+// Display "Next" button
+if ($current_page < $total_pages) {
+    $query_params['page'] = $current_page + 1;
+    echo '<a href="myrace.php?' . http_build_query($query_params) . '" class="button-7">Next</a>';
+} else {
+    echo '<span class="disabled">Next</span>';
+}
+
+    ?>
+</div>
+
+
                     </div>
                 </div>
             </div>

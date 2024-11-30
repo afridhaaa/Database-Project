@@ -72,7 +72,7 @@ $total_pages = ceil($total_count / $results_per_page);
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Formula1 - Circuits</title>
+    <title> Formula Vault - Circuits</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="./assets/css/style.css">
@@ -104,34 +104,7 @@ $total_pages = ceil($total_count / $results_per_page);
             text-align: center;
             padding: 10px 0;
         }
-        .page-link {
-    background-color: #e94747;
-    color: white;
-    border: 1px solid #e94747;
-    border-radius: 5px;
-    padding: 10px 15px;
-}
-
-.page-link:hover {
-    background-color: #007bff;
-    color: white;
-}
-
-.page-link.active {
-    background-color: #007bff !important; /* Active tab background */
-    color: white !important; /* Active tab text color */
-    font-weight: bold; /* Optional: Make text bold */
-    border: 1px solid #007bff !important; /* Border color for active tab */
-    border-radius: 5px; /* Rounded corners */
-}
-
-.page-link.active:hover {
-    background-color: #0056b3; /* Darker shade on hover */
-    color: white;
-}
-
-
-    </style>
+   </style>
 </head>
   <body>
   <div class="wrapper">
@@ -140,7 +113,7 @@ $total_pages = ceil($total_count / $results_per_page);
         <div class="row">
             <div class="col-md-2">
                 <!-- <div class="heading">
-                  <a href="index.php"><h4>Formula1</h4></a>
+                  <a href="index.php"><h4>Formula Vault</h4></a>
                 </div> -->
             </div>
         </div>
@@ -227,36 +200,66 @@ $total_pages = ceil($total_count / $results_per_page);
                             </table>
                         </div>
 
-                        <nav>
-    <ul class="pagination justify-content-center">
-        <?php
-        $adjacents = 7;
-        $start = max(1, $page - $adjacents);
-        $end = min($total_pages, $page + $adjacents);
+                        <!-- Pagination Controls -->
+  <div class="pagination">
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+        ? intval($_GET['page']) 
+        : 1;
 
-        // First and Previous buttons
-        if ($total_pages > $adjacents && $page > 1) {
-            echo "<li class='page-item'><a class='page-link' href='mycircuit.php?page=1'>First</a></li>";
-            echo "<li class='page-item'><a class='page-link' href='mycircuit.php?page=" . ($page - 1) . "'>&laquo; Prev</a></li>";
+    // Ensure $total_pages is always an integer and greater than zero
+    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
+        ? intval($total_pages) 
+        : 1;
+
+    // Define the maximum number of links to display
+    $max_links = 7;
+
+    // Calculate the start and end pages
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
+
+    // Adjust start_page if the range is less than $max_links
+    if ($end_page - $start_page + 1 < $max_links) {
+        $start_page = max(1, $end_page - $max_links + 1);
+    }
+
+    // Preserve search parameters
+    $query_params = [
+        'search_name' => $search_name ?? '',
+        'search_year' => $search_year ?? '',
+        'search_round' => $search_round ?? '',
+        'sort_order' => $sort_order ?? ''
+    ];
+
+    // Display "Previous" button
+    if ($current_page > 1) {
+        $query_params['page'] = $current_page - 1;
+        echo '<a href="mycircuit.php?' . http_build_query($query_params) . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
+
+    // Display limited page numbers
+    for ($i = $start_page; $i <= $end_page; $i++) {
+        $query_params['page'] = $i;
+        if ($i == $current_page) {
+            echo '<span class="current-page">' . $i . '</span>'; // Current page
+        } else {
+            echo '<a href="mycircuit.php?' . http_build_query($query_params) . '">' . $i . '</a>';
         }
+    }
 
-        // Page number links
-        for ($i = $start; $i <= $end; $i++) {
-            $active = ($i == $page) ? 'active' : '';
-            echo "<li class='page-item'><a class='page-link $active' href='mycircuit.php?page=$i'>$i</a></li>";
-        }
-
-        // Next and Last buttons
-        if ($total_pages > $adjacents && $page < $total_pages) {
-            echo "<li class='page-item'><a class='page-link' href='mycircuit.php?page=" . ($page + 1) . "'>Next &raquo;</a></li>";
-            echo "<li class='page-item'><a class='page-link' href='mycircuit.php?page=$total_pages'>Last</a></li>";
-        }
-        ?>
-    </ul>
-</nav>
-
-
-
+    // Display "Next" button
+    if ($current_page < $total_pages) {
+        $query_params['page'] = $current_page + 1;
+        echo '<a href="mycircuit.php?' . http_build_query($query_params) . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
+</div>
 
                     </div>
                 </div>

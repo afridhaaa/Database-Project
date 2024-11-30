@@ -256,42 +256,55 @@ $total_pages = ceil(($total_result[0]['total'] ?? 0) / $results_per_page);
                         </div>
 
                         <!-- Pagination Controls -->
-                        <div class="pagination">
-                            <?php
-                            // Ensure $current_page is always an integer
-                            $current_page = isset($_GET['page']) && is_numeric($_GET['page'])
-                                ? intval($_GET['page'])
-                                : 1;
+<div class="pagination">
+    <?php
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page'])
+        ? intval($_GET['page'])
+        : 1;
 
-                            // Ensure $total_pages is a valid integer and at least 1
-                            $total_pages = isset($total_pages) && $total_pages > 0
-                                ? intval($total_pages)
-                                : 1;
+    // Ensure $total_pages is a valid integer and at least 1
+    $total_pages = isset($total_pages) && $total_pages > 0
+        ? intval($total_pages)
+        : 1;
 
-                            // Display "Previous" button
-                            if ($current_page > 1) {
-                                echo '<a href="topdriver.php?page=' . ($current_page - 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
-                            } else {
-                                echo '<span class="disabled">Previous</span>';
-                            }
+    // Define the maximum number of links to display
+    $max_links = 7;
 
-                            // Display page numbers
-                            for ($i = 1; $i <= $total_pages; $i++) {
-                                if ($i == $current_page) {
-                                    echo '<span class="current-page">' . $i . '</span>'; // Active page
-                                } else {
-                                    echo '<a href="topdriver.php?page=' . $i . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '">' . $i . '</a>';
-                                }
-                            }
+    // Calculate start and end pages
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
 
-                            // Display "Next" button
-                            if ($current_page < $total_pages) {
-                                echo '<a href="topdriver.php?page=' . ($current_page + 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
-                            } else {
-                                echo '<span class="disabled">Next</span>';
-                            }
-                            ?>
-                        </div>
+    // Adjust start_page if the range is less than $max_links
+    if ($end_page - $start_page < $max_links - 1) {
+        $start_page = max(1, $end_page - $max_links + 1);
+    }
+
+    // Display "Previous" button
+    if ($current_page > 1) {
+        echo '<a href="topdriver.php?page=' . ($current_page - 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
+    } else {
+        echo '<span class="disabled">Previous</span>';
+    }
+
+    // Display limited page numbers
+    for ($i = $start_page; $i <= $end_page; $i++) {
+        if ($i == $current_page) {
+            echo '<span class="current-page">' . $i . '</span>'; // Active page
+        } else {
+            echo '<a href="topdriver.php?page=' . $i . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '">' . $i . '</a>';
+        }
+    }
+
+    // Display "Next" button
+    if ($current_page < $total_pages) {
+        echo '<a href="topdriver.php?page=' . ($current_page + 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
+    ?>
+</div>
+
 
                     </div>
                 </div>

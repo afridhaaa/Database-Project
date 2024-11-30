@@ -9,6 +9,14 @@ error_reporting(E_ALL);
 // Define how many results you want per page
 $results_per_page = 10;
 
+// Ensure $page is defined and valid
+$page = isset($_GET['page']) && is_numeric($_GET['page']) && $_GET['page'] > 0 
+    ? intval($_GET['page']) 
+    : 1;
+
+// Ensure $total_pages is initialized as a fallback
+$total_pages = 1; // Default value; will be recalculated later
+
 $current_page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $search_lap = isset($_GET['search_lap']) ? trim($_GET['search_lap']) : '';
 $search_position = isset($_GET['search_position']) ? trim($_GET['search_position']) : '';
@@ -71,7 +79,7 @@ $total_pages = ceil($total_count / $results_per_page);
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Formula1 - Lap Times</title>
+    <title>Formula Vault - Lap Times</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="./assets/css/style.css">
@@ -82,7 +90,7 @@ $total_pages = ceil($total_count / $results_per_page);
         <div class="row">
             <div class="col-md-2">
                 <div class="heading">
-                  <a href="index.php"> <!-- <h4>Formula1</h4></a> -->
+                  <a href="index.php">
                 </div>
             </div>
         </div>
@@ -177,48 +185,42 @@ $total_pages = ceil($total_count / $results_per_page);
                         <div class="pagination">
     <?php
     // Ensure $current_page is always an integer
-    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
-        ? intval($_GET['page']) 
-        : 1;
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) ? intval($_GET['page']) : 1;
 
-    // Ensure $total_pages is a valid integer
-    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
-        ? intval($total_pages) 
-        : 1;
+    // Ensure $total_pages is a valid integer and at least 1
+    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 ? intval($total_pages) : 1;
+
+    // Define the maximum number of links to display
+    $max_links = 7;
+
+    // Calculate the start and end pages
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
+
+    // Adjust the start page if the range is less than $max_links
+    if ($end_page - $start_page + 1 < $max_links) {
+        $start_page = max(1, $end_page - $max_links + 1);
+    }
 
     // Display "Previous" button
     if ($current_page > 1) {
-        echo '<a href="mylap.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
+        echo '<a href="mylap.php?page=' . ($current_page - 1) . '&search_lap=' . urlencode($search_lap) . '&search_position=' . urlencode($search_position) . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
     } else {
         echo '<span class="disabled">Previous</span>';
     }
 
-    // Calculate the start and end page numbers
-    $start_page = max(1, $current_page - 2); // Start from two pages before the current page
-    $end_page = min($total_pages, $current_page + 2); // End at two pages after the current page
-
-    // Adjust if current page is near the beginning
-    if ($current_page <= 2) {
-        $end_page = min(4, $total_pages); // Show up to 4 pages if near the start
-    }
-
-    // Adjust if current page is near the end
-    if ($current_page >= $total_pages - 1) {
-        $start_page = max(1, $total_pages - 3); // Show the last 4 pages if near the end
-    }
-
-    // Display page numbers
+    // Display limited page numbers
     for ($i = $start_page; $i <= $end_page; $i++) {
         if ($i == $current_page) {
-            echo '<span class="current-page">' . $i . '</span>'; // Highlight current page
+            echo '<span class="current-page">' . $i . '</span>'; // Active page
         } else {
-            echo '<a href="mylap.php?page=' . $i . '" class="button-7">' . $i . '</a>';
+            echo '<a href="mylap.php?page=' . $i . '&search_lap=' . urlencode($search_lap) . '&search_position=' . urlencode($search_position) . '&sort_order=' . $sort_order . '">' . $i . '</a>';
         }
     }
 
     // Display "Next" button
     if ($current_page < $total_pages) {
-        echo '<a href="mylap.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
+        echo '<a href="mylap.php?page=' . ($current_page + 1) . '&search_lap=' . urlencode($search_lap) . '&search_position=' . urlencode($search_position) . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
     } else {
         echo '<span class="disabled">Next</span>';
     }
@@ -226,7 +228,7 @@ $total_pages = ceil($total_count / $results_per_page);
 </div>
 
 
-                        
+                 
                     </div>
                 </div>
             </div>

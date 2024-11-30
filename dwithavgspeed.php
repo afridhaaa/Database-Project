@@ -119,7 +119,7 @@ $result = $db->lap_times->aggregate($pipeline);
         <div class="row">
             <div class="col-md-2">
                 <div class="heading">
-                  <a href="index.php">  <!-- <h4>Formula1</h4></a> -->
+                  <a href="index.php">  <!-- <h4>Formula Vault</h4></a> -->
                 </div>
             </div>
         </div>
@@ -199,47 +199,52 @@ $result = $db->lap_times->aggregate($pipeline);
                               </table>
                           </div>
 
-<div class="pagination">
+ <!-- Pagination Controls -->
+ <div class="pagination">
     <?php
-    // Ensure current page and total pages are integers
-    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) && $_GET['page'] > 0 
-        ? intval($_GET['page']) 
+    // Ensure $current_page is always an integer
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page'])
+        ? intval($_GET['page'])
         : 1;
 
-    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 
-        ? intval($total_pages) 
+    // Ensure $total_pages is a valid integer and at least 1
+    $total_pages = isset($total_pages) && $total_pages > 0
+        ? intval($total_pages)
         : 1;
 
-    // Number of page links to display at once
-    $max_visible_pages = 5;
+    // Define the maximum number of links to display
+    $max_links = 7;
 
-    // Calculate start and end page numbers
-    $start_page = max(1, $current_page - floor($max_visible_pages / 2));
-    $end_page = min($total_pages, $start_page + $max_visible_pages - 1);
+    // Calculate start and end pages
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
 
-    // Adjust the start page if we're near the end
-    if ($end_page - $start_page + 1 < $max_visible_pages) {
-        $start_page = max(1, $end_page - $max_visible_pages + 1);
+    // Adjust start_page if the range is less than $max_links
+    if ($end_page - $start_page < $max_links - 1) {
+        $start_page = max(1, $end_page - $max_links + 1);
     }
 
     // Display "Previous" button
     if ($current_page > 1) {
-        echo '<a href="dwithavgspeed.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order_text . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
+        echo '<a href="dwithavgspeed.php?page=' . ($current_page - 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
     } else {
-        echo '<span class="button-7 disabled">Previous</span>';
+        echo '<span class="disabled">Previous</span>';
     }
 
-    // Display page numbers within the calculated range
+    // Display limited page numbers
     for ($i = $start_page; $i <= $end_page; $i++) {
-        $active = ($i == $current_page) ? 'active' : '';
-        echo '<a href="dwithavgspeed.php?page=' . $i . '&sort_order=' . $sort_order_text . '&search=' . urlencode($search_keyword) . '" class="button-7 ' . $active . '">' . $i . '</a>';
+        if ($i == $current_page) {
+            echo '<span class="current-page">' . $i . '</span>'; // Active page
+        } else {
+            echo '<a href="dwithavgspeed.php?page=' . $i . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '">' . $i . '</a>';
+        }
     }
 
     // Display "Next" button
     if ($current_page < $total_pages) {
-        echo '<a href="dwithavgspeed.php?page=' . ($current_page + 1) . '&sort_order=' . $sort_order_text . '&search=' . urlencode($search_keyword) . '" class="button-7">Next</a>';
+        echo '<a href="dwithavgspeed.php?page=' . ($current_page + 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
     } else {
-        echo '<span class="button-7 disabled">Next</span>';
+        echo '<span class="disabled">Next</span>';
     }
     ?>
 </div>

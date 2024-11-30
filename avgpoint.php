@@ -125,9 +125,6 @@ QqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-2">
-                <!-- <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
-                </div> -->
             </div>
         </div>
     </div>
@@ -229,6 +226,18 @@ QqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="
     $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
     $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'asc';
 
+    // Define the maximum number of links to display
+    $max_links = 7;
+
+    // Calculate start and end pages for the pagination range
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
+
+    // Adjust start_page if the range is less than $max_links
+    if ($end_page - $start_page + 1 < $max_links) {
+        $start_page = max(1, $end_page - $max_links + 1);
+    }
+
     // Display "Previous" button
     if ($current_page > 1) {
         echo '<a href="avgpoint.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
@@ -236,8 +245,8 @@ QqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="
         echo '<span class="disabled">Previous</span>';
     }
 
-    // Display page numbers
-    for ($i = 1; $i <= $total_pages; $i++) {
+    // Display limited page numbers
+    for ($i = $start_page; $i <= $end_page; $i++) {
         if ($i == $current_page) {
             echo '<a href="#" class="current-page">' . $i . '</a>'; // Active page
         } else {
@@ -253,6 +262,7 @@ QqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="
     }
     ?>
 </div>
+
 
                     </div>
                 </div>

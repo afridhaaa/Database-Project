@@ -83,7 +83,7 @@ $total_pages = ceil($total_count / $results_per_page);
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Formula1 - Driver Standings</title>
+    <title>Formula Vault - Driver Standings</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
     <link rel="stylesheet" href="./assets/css/style.css">
@@ -94,7 +94,7 @@ $total_pages = ceil($total_count / $results_per_page);
             <div class="row">
                 <div class="col-md-2">
                     <div class="heading">
-                        <a href="index.php"> <!-- <h4>Formula1</h4></a> -->
+                        <a href="index.php"> <!-- <h4>Formula Vault</h4></a> -->
                     </div>
                 </div>
             </div>
@@ -186,7 +186,7 @@ $total_pages = ceil($total_count / $results_per_page);
 
                             
         <!-- Pagination Controls -->
-        <div class="pagination">
+<div class="pagination">
     <?php
     // Ensure $current_page is an integer
     $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
@@ -198,6 +198,18 @@ $total_pages = ceil($total_count / $results_per_page);
         ? intval($total_pages) 
         : 1;
 
+    // Define the maximum number of links to display
+    $max_links = 7;
+
+    // Calculate start and end pages
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
+
+    // Adjust start_page if the range is less than $max_links
+    if ($end_page - $start_page < $max_links - 1) {
+        $start_page = max(1, $end_page - $max_links + 1);
+    }
+
     // Display "Previous" button
     if ($current_page > 1) {
         echo '<a href="mystand.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
@@ -205,8 +217,8 @@ $total_pages = ceil($total_count / $results_per_page);
         echo '<span class="disabled">Previous</span>';
     }
 
-    // Display page numbers with a range of 5 (2 before and 2 after the current page)
-    for ($i = max(1, $current_page - 2); $i <= min($total_pages, $current_page + 2); $i++) {
+    // Display limited page numbers
+    for ($i = $start_page; $i <= $end_page; $i++) {
         if ($i == $current_page) {
             echo '<span class="current-page">' . $i . '</span>'; // Active page
         } else {
@@ -222,6 +234,7 @@ $total_pages = ceil($total_count / $results_per_page);
     }
     ?>
 </div>
+
                         </div>
                     </div>
                 </div>

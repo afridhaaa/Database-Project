@@ -78,7 +78,7 @@ $total_pages = ceil($total_row['total'] / $results_per_page);
         <div class="row">
             <div class="col-md-2">
                 <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
+                  <a href="index.php">  <h4>Formula Vault</h4></a>
                 </div>
             </div>
         </div>

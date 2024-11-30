@@ -194,41 +194,53 @@ $total_pages = ceil($total_count / $results_per_page);
 
                         <!-- Pagination Controls -->
                         <!-- Pagination Controls -->
-<div class="pagination">
+                        <div class="pagination">
     <?php
-    // Ensure $current_page is an integer
+    // Ensure $current_page is always an integer
     $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
         ? intval($_GET['page']) 
         : 1;
 
-    // Ensure $total_pages is a valid integer and at least 1
+    // Ensure $total_pages is a valid integer
     $total_pages = isset($total_pages) && $total_pages > 0 
         ? intval($total_pages) 
         : 1;
 
-    // Ensure search and sort order parameters have default values
+    // Ensure search_keyword and sort_order parameters have default values
     $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
     $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'asc';
 
+    // Number of links to display
+    $max_links = 7;
+
+    // Calculate start and end page for pagination
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
+
+    // Adjust start_page if the total number of pages is less than $max_links
+    if ($end_page - $start_page < $max_links - 1) {
+        $start_page = max(1, $end_page - $max_links + 1);
+    }
+
     // Previous button
     if ($current_page > 1) {
-        echo '<a href="myconstruct.php?page=' . ($current_page - 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Previous</a>';
+        echo '<a href="myconstruct.php?page=' . ($current_page - 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
     } else {
         echo '<span class="disabled">Previous</span>';
     }
 
-    // Page numbers
-    for ($i = 1; $i <= $total_pages; $i++) {
+    // Page number links
+    for ($i = $start_page; $i <= $end_page; $i++) {
         if ($i == $current_page) {
-            echo '<a href="#" class="active">' . $i . '</a>'; // Active page
+            echo '<span class="current-page">' . $i . '</span>';
         } else {
-            echo '<a href="myconstruct.php?page=' . $i . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '">' . $i . '</a>';
+            echo '<a href="myconstruct.php?page=' . $i . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '">' . $i . '</a>';
         }
     }
 
     // Next button
     if ($current_page < $total_pages) {
-        echo '<a href="myconstruct.php?page=' . ($current_page + 1) . '&sort_order=' . $sort_order . '&search=' . urlencode($search_keyword) . '" class="button-7">Next</a>';
+        echo '<a href="myconstruct.php?page=' . ($current_page + 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
     } else {
         echo '<span class="disabled">Next</span>';
     }

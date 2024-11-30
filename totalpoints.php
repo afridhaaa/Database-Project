@@ -125,7 +125,7 @@ $results = iterator_to_array($query);
         <div class="row">
             <div class="col-md-2">
                 <div class="heading">
-                    <a href="index.php"> <!-- <h4>Formula1</h4></a> -->
+                    <a href="index.php"> 
                 </div>
             </div>
         </div>
@@ -179,54 +179,55 @@ $results = iterator_to_array($query);
                         </div>
 
                         <!-- Pagination Controls -->
-                        <div class="pagination">
-                        <?php
-                        // Ensure $current_page is always an integer
-                        $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
-                            ? intval($_GET['page']) 
-                            : 1;
+<div class="pagination">
+<?php
+// Ensure $current_page is always an integer
+$current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
+    ? intval($_GET['page']) 
+    : 1;
 
-                        // Ensure $total_pages is a valid integer
-                        $total_pages = isset($total_pages) && $total_pages > 0 
-                            ? intval($total_pages) 
-                            : 1;
+// Ensure $total_pages is a valid integer
+$total_pages = isset($total_pages) && $total_pages > 0 
+    ? intval($total_pages) 
+    : 1;
 
-                        // Set how many page links to show at once
-                        $links_to_show = 5;
+// Set the maximum number of page links to show at once
+$links_to_show = 7;
 
-                        // Calculate start and end pages for the pagination range
-                        $start_page = max(1, $current_page - floor($links_to_show / 2));
-                        $end_page = min($total_pages, $start_page + $links_to_show - 1);
+// Calculate start and end pages for the pagination range
+$start_page = max(1, $current_page - floor($links_to_show / 2));
+$end_page = min($total_pages, $start_page + $links_to_show - 1);
 
-                        // Adjust start page if there are fewer pages on the right side
-                        if ($end_page - $start_page + 1 < $links_to_show) {
-                            $start_page = max(1, $end_page - $links_to_show + 1);
-                        }
+// Adjust start page if the range is less than $links_to_show
+if ($end_page - $start_page + 1 < $links_to_show) {
+    $start_page = max(1, $end_page - $links_to_show + 1);
+}
 
-                        // Display "Previous" button
-                        if ($current_page > 1) {
-                            echo '<a href="totalpoints.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
-                        } else {
-                            echo '<span class="disabled">Previous</span>';
-                        }
+// Display "Previous" button
+if ($current_page > 1) {
+    echo '<a href="totalpoints.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
+} else {
+    echo '<span class="disabled">Previous</span>';
+}
 
-                        // Display page numbers
-                        for ($i = $start_page; $i <= $end_page; $i++) {
-                            if ($i == $current_page) {
-                                echo '<a href="#" class="current-page">' . $i . '</a>'; // Active page
-                            } else {
-                                echo '<a href="totalpoints.php?page=' . $i . '">' . $i . '</a>';
-                            }
-                        }
+// Display limited page numbers
+for ($i = $start_page; $i <= $end_page; $i++) {
+    if ($i == $current_page) {
+        echo '<a href="#" class="current-page">' . $i . '</a>'; // Active page
+    } else {
+        echo '<a href="totalpoints.php?page=' . $i . '">' . $i . '</a>';
+    }
+}
 
-                        // Display "Next" button
-                        if ($current_page < $total_pages) {
-                            echo '<a href="totalpoints.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
-                        } else {
-                            echo '<span class="disabled">Next</span>';
-                        }
-                        ?>
-                        </div>
+// Display "Next" button
+if ($current_page < $total_pages) {
+    echo '<a href="totalpoints.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
+} else {
+    echo '<span class="disabled">Next</span>';
+}
+?>
+</div>
+
                     </div>
                 </div>
             </div>

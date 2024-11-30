@@ -75,7 +75,7 @@ $total_pages = ceil($total_count / $results_per_page);
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Drivers - Formula1</title>
+    <title>Formula Vault - Drivers</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="./assets/css/style.css">
@@ -85,9 +85,6 @@ $total_pages = ceil($total_count / $results_per_page);
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-2">
-                <!-- <div class="heading">
-                  <a href="index.php">  <h4>Formula1</h4></a>
-                </div> -->
             </div>
         </div>
     </div>
@@ -168,34 +165,42 @@ $total_pages = ceil($total_count / $results_per_page);
                         <div class="pagination">
     <?php
     // Ensure $current_page is always an integer
-    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
-        ? intval($_GET['page']) 
-        : 1;
+    $current_page = isset($_GET['page']) && is_numeric($_GET['page']) ? intval($_GET['page']) : 1;
 
-    // Ensure $total_pages is a valid integer
-    $total_pages = isset($total_pages) && $total_pages > 0 
-        ? intval($total_pages) 
-        : 1;
+    // Ensure $total_pages is a valid integer and at least 1
+    $total_pages = isset($total_pages) && is_numeric($total_pages) && $total_pages > 0 ? intval($total_pages) : 1;
+
+    // Define the maximum number of links to display
+    $max_links = 7;
+
+    // Calculate the start and end pages
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
+
+    // Adjust the start page if the range is less than $max_links
+    if ($end_page - $start_page + 1 < $max_links) {
+        $start_page = max(1, $end_page - $max_links + 1);
+    }
 
     // Display "Previous" button
     if ($current_page > 1) {
-        echo '<a href="mydriver.php?page=' . ($current_page - 1) . '" class="button-7">Previous</a>';
+        echo '<a href="mydriver.php?page=' . ($current_page - 1) . '&search_lap=' . urlencode($search_lap) . '&search_position=' . urlencode($search_position) . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
     } else {
         echo '<span class="disabled">Previous</span>';
     }
 
-    // Display page numbers
-    for ($i = 1; $i <= $total_pages; $i++) {
+    // Display limited page numbers
+    for ($i = $start_page; $i <= $end_page; $i++) {
         if ($i == $current_page) {
-            echo '<a href="#" class="current-page">' . $i . '</a>'; // Active page
+            echo '<span class="current-page">' . $i . '</span>'; // Active page
         } else {
-            echo '<a href="mydriver.php?page=' . $i . '">' . $i . '</a>';
+            echo '<a href="mydriver.php?page=' . $i . '&search_lap=' . urlencode($search_lap) . '&search_position=' . urlencode($search_position) . '&sort_order=' . $sort_order . '">' . $i . '</a>';
         }
     }
 
     // Display "Next" button
     if ($current_page < $total_pages) {
-        echo '<a href="mydriver.php?page=' . ($current_page + 1) . '" class="button-7">Next</a>';
+        echo '<a href="mydriver.php?page=' . ($current_page + 1) . '&search_lap=' . urlencode($search_lap) . '&search_position=' . urlencode($search_position) . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
     } else {
         echo '<span class="disabled">Next</span>';
     }

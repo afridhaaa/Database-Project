@@ -127,9 +127,6 @@ $total_pages = isset($total_row[0]) ? ceil($total_row[0]['total'] / $results_per
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-2">
-                <!-- <div class="heading">
-                  <a href="index.php"><h4>Formula1</h4></a>
-                </div> -->
             </div>
         </div>
     </div>
@@ -210,7 +207,7 @@ $total_pages = isset($total_row[0]) ? ceil($total_row[0]['total'] / $results_per
                         </div>
 
                         <!-- Pagination Controls -->
-        <div class="pagination">
+                        <div class="pagination">
     <?php
     // Ensure $current_page is always an integer
     $current_page = isset($_GET['page']) && is_numeric($_GET['page']) 
@@ -222,35 +219,47 @@ $total_pages = isset($total_row[0]) ? ceil($total_row[0]['total'] / $results_per
         ? intval($total_pages) 
         : 1;
 
-    // Ensure search_term and sort_order parameters have default values
+    // Ensure search_keyword and sort_order parameters have default values
     $search_keyword = isset($_GET['search']) ? $_GET['search'] : '';
-    $sort_order = isset($_GET['sort']) ? $_GET['sort'] : 'asc';
+    $sort_order = isset($_GET['sort_order']) ? $_GET['sort_order'] : 'asc';
+
+    // Number of links to display
+    $max_links = 7;
+
+    // Calculate start and end page for pagination
+    $start_page = max(1, $current_page - floor($max_links / 2));
+    $end_page = min($total_pages, $start_page + $max_links - 1);
+
+    // Adjust start_page if the total number of pages is less than $max_links
+    if ($end_page - $start_page < $max_links - 1) {
+        $start_page = max(1, $end_page - $max_links + 1);
+    }
 
     // Previous button
-if ($current_page > 1) {
-    echo '<a href="avgn.php?page=' . ($current_page - 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
-} else {
-    echo '<span class="disabled">Previous</span>';
-}
-
-// Page numbers
-for ($i = 1; $i <= $total_pages; $i++) {
-    if ($i == $current_page) {
-        echo '<span class="current-page">' . $i . '</span>';
+    if ($current_page > 1) {
+        echo '<a href="avgn.php?page=' . ($current_page - 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Previous</a>';
     } else {
-        echo '<a href="avgn.php?page=' . $i . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '">' . $i . '</a>';
+        echo '<span class="disabled">Previous</span>';
     }
-}
 
-// Next button
-if ($current_page < $total_pages) {
-    echo '<a href="avgn.php?page=' . ($current_page + 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
-} else {
-    echo '<span class="disabled">Next</span>';
-}
+    // Page number links
+    for ($i = $start_page; $i <= $end_page; $i++) {
+        if ($i == $current_page) {
+            echo '<span class="current-page">' . $i . '</span>';
+        } else {
+            echo '<a href="avgn.php?page=' . $i . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '">' . $i . '</a>';
+        }
+    }
 
+    // Next button
+    if ($current_page < $total_pages) {
+        echo '<a href="avgn.php?page=' . ($current_page + 1) . '&search=' . urlencode($search_keyword) . '&sort_order=' . $sort_order . '" class="button-7">Next</a>';
+    } else {
+        echo '<span class="disabled">Next</span>';
+    }
     ?>
 </div>
+
                     </div>
                 </div>
             </div>
